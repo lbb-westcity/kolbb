@@ -66,6 +66,8 @@ sudo systemctl restart kolbb
 
 ## 项目资料
 
+- [在线 Wiki · 下班百科](http://49.235.23.27:7001/)（[文档版](docs/wiki/README.md)）：新手操作、角色技能、完整招式数据、战斗机制、食物与联机指南。
+
 - `docs/GDD.md`：战斗、网络及验收规格。
 - `docs/VISUAL_BIBLE.md`：角色、舞台和反馈规范。
 - `docs/IMPLEMENTATION.md`：实现、资源来源和实际验证记录。

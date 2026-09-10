@@ -225,3 +225,37 @@ sudo logrotate --debug /etc/logrotate.d/kolbb
 - [实现与验证记录](IMPLEMENTATION.md)：功能、素材和实机验证结果。
 - [导出脚本](../tools/export.sh)、[安装脚本](../server/install.sh)。
 - [服务配置](../server/kolbb.service)、[日志轮转配置](../server/kolbb.logrotate)。
+
+## 10. Wiki 网站（TCP 7001）
+
+访问地址：[KOLBB 下班百科](http://49.235.23.27:7001/)。2026-09-10 已验证公网 HTTP 200。
+
+Wiki 使用现有 Nginx 提供静态页面，站点目录 `/var/www/kolbb-wiki`，配置 `/etc/nginx/conf.d/kolbb-wiki.conf`，仓库模板为 [server/kolbb-wiki.conf](../server/kolbb-wiki.conf)。网页端口为 **TCP 7001**，与游戏的 **UDP 7000** 分开。新服务器需在云防火墙放行 TCP 7001；本次部署时该端口已可公网访问，UFW 未启用。
+
+内容源是 `docs/wiki/*.md`，样式为 `docs/wiki/wiki.css`。构建使用 Python 3 与 Python-Markdown（本机已有 3.4.1；新环境可使用 `python3 -m pip install Markdown==3.4.1`）。无需前端构建工具或网站数据库。文档之间的链接转成网页链接，图片复制到站点目录，源代码和其他项目资料链接指向 GitHub。
+
+**本机，在项目根目录构建、检查、上传：**
+
+```sh
+python3 tools/build_wiki.py
+python3 tests/wiki_test.py
+COPYFILE_DISABLE=1 tar --no-xattrs -czf build/KOLBB-wiki.tar.gz -C build/wiki .
+scp build/KOLBB-wiki.tar.gz ubuntu@49.235.23.27:kolbb-release/
+```
+
+**服务器，备份后更新内容：**
+
+```sh
+set -e
+kolbb_wiki_backup="/var/backups/kolbb-wiki/$(date +%Y%m%d-%H%M%S)"
+sudo install -d -m 755 "$kolbb_wiki_backup"
+sudo cp -a /var/www/kolbb-wiki "$kolbb_wiki_backup/"
+sudo tar -xzf ~/kolbb-release/KOLBB-wiki.tar.gz --no-same-owner -C /var/www/kolbb-wiki
+sudo find /var/www/kolbb-wiki -type d -exec chmod 755 {} +
+sudo find /var/www/kolbb-wiki -type f -exec chmod 644 {} +
+curl --fail --silent --output /dev/null --write-out '%{http_code}\n' http://127.0.0.1:7001/
+```
+
+只更新静态内容无需重载 Nginx。首次安装或修改端口配置时，将仓库 `server/kolbb-wiki.conf` 上传并安装到 `/etc/nginx/conf.d/kolbb-wiki.conf`，执行 `sudo nginx -t` 成功后再执行 `sudo systemctl reload nginx`。无需重启游戏服务。访问日志为 `/var/log/nginx/kolbb-wiki.access.log`，错误日志为 `/var/log/nginx/kolbb-wiki.error.log`。
+
+最后在本机验证 `curl --fail http://49.235.23.27:7001/` 并打开网页。HTTP 成功只验证 Wiki，不代表游戏 UDP 连接已经通过验收。
