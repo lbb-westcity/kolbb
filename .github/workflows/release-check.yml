@@ -1,0 +1,38 @@
+name: Windows release smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to verify (draft releases supported)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download Windows release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_REPO: ${{ github.repository }}
+        run: |
+          gh release download "$env:RELEASE_TAG" --repo "$env:RELEASE_REPO" --pattern KOLBB-Windows-x64.zip
+          if ($LASTEXITCODE -ne 0) { throw "Release download failed" }
+          Expand-Archive KOLBB-Windows-x64.zip -DestinationPath game
+      - name: Verify assets and run CPU match
+        run: |
+          foreach ($mode in @('assets', 'battle')) {
+            $arguments = if ($mode -eq 'assets') { '--headless -- --verify-assets' } else { '--headless --quit-after 600 -- --demo' }
+            $process = Start-Process -FilePath ./game/KOLBB.exe -ArgumentList $arguments -Wait -PassThru -RedirectStandardOutput "$mode.log" -RedirectStandardError "$mode.err"
+            $output = (Get-Content "$mode.log", "$mode.err") -join "`n"
+            Write-Output $output
+            if ($process.ExitCode -ne 0) { throw "$mode exited with $($process.ExitCode)" }
+            if ($output -match 'SCRIPT ERROR:|ERROR:') { throw "$mode emitted errors" }
+            if ($mode -eq 'assets' -and $output -notmatch 'Asset check: PASS') { throw 'Asset verification did not complete' }
+          }

@@ -4,7 +4,11 @@
 
 ## 运行
 
+发行版见 [GitHub Releases](https://github.com/lbb-westcity/kolbb/releases)，提供源码、macOS、Windows x64 和 Ubuntu x86_64 服务器包。
+
 解压 `build/KOLBB-macOS.zip`，打开 `KOLBB.app`。包包含 Apple Silicon 和 Intel 两种架构。当前使用本地临时签名，尚未经过 Apple 公证；如系统拦截，在“系统设置 → 隐私与安全性”中允许打开。
+
+Windows 用户解压 `KOLBB-Windows-x64.zip`，运行 `KOLBB.exe`；资源已内嵌，无需安装 Godot。当前 Windows 程序未进行代码签名。
 
 源码启动：
 
@@ -42,7 +46,7 @@ bash tools/check.sh
 bash tools/export.sh
 ```
 
-`GODOT_BIN` 可以覆盖引擎路径。导出需要相同版本的 macOS 和 Linux 导出模板。
+`GODOT_BIN` 可以覆盖引擎路径。导出需要相同版本的 macOS、Windows 和 Linux 导出模板；脚本在 macOS 上使用 `zip` 和 `tar` 打包。
 
 ## 服务器
 

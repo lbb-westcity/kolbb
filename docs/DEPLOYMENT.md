@@ -27,7 +27,7 @@
 
 ### 本机与服务器
 
-- 本机安装 Godot 4.7.2，以及相同版本的 macOS、Linux 导出模板；现有脚本会同时导出两平台。
+- 本机安装 Godot 4.7.2，以及相同版本的 macOS、Windows、Linux 导出模板；现有脚本会同时导出三平台。
 - 服务器使用 Ubuntu 24.04 x86_64，具备 SSH 登录和 `sudo` 权限。发行程序已嵌入游戏资源，服务器不需要安装 Godot 编辑器。
 - 如果已有本次发布的服务器压缩包，可以跳过导出步骤。
 
@@ -80,6 +80,7 @@ Godot 不在默认位置时，可使用 `GODOT_BIN=/实际路径/Godot bash tool
 
 - `build/KOLBB-Ubuntu-server.tar.gz`：服务器程序、安装脚本、systemd 和日志轮转配置。
 - `build/KOLBB-macOS.zip`：配套客户端，发布时应一并保留。
+- `build/KOLBB-Windows-x64.zip`：Windows x64 配套客户端。
 
 上传服务器包：
 
