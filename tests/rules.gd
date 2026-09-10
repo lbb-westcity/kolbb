@@ -32,12 +32,22 @@ func run() -> void:
 			for attack in [C.A,C.C,C.B,C.D]:
 				var cases: Array = [[[C.DOWN,forward],"S1"],[[C.DOWN,back],"S2"],[[C.DOWN,forward,C.DOWN,forward],"U1"]] if attack in [C.A,C.C] else [[[forward,C.DOWN] if ch==0 else [forward,C.DOWN,back],"S3"]]
 				for entry in cases:
-					cmd=C.fresh()
-					for bits in entry[0]:
-						C.sample(cmd,0,face,ch,false)
-						C.sample(cmd,bits,face,ch,false)
-					C.sample(cmd,attack,face,ch,false)
-					ok(cmd.buffer==entry[1],"cardinal command char=%d face=%d attack=%d %s" % [ch,face,attack,entry[1]])
+					for held in [false,true]:
+						var trial = fresh([ch,1-ch])
+						trial.state.fighters[0].x=(260 if face==1 else 400)*256
+						trial.state.fighters[1].x=(400 if face==1 else 260)*256
+						trial.state.fighters[0].energy=300
+						var held_bits: int = 0
+						for key in entry[0]:
+							held_bits = (held_bits & ~int(key)) if held else 0
+							trial.step([held_bits,0]) # Repeated keys must be released before pressing again.
+							held_bits |= key
+							for i in 12: trial.step([held_bits,0])
+						trial.step([held_bits|attack,0])
+						ok(trial.state.fighters[0].move=="P%d-%s" % [ch+1,entry[1]],"special char=%d face=%d attack=%d held=%s %s" % [ch,face,attack,held,entry[1]])
+	cmd=C.fresh()
+	for bits in [C.DOWN,C.LEFT|C.RIGHT,C.LEFT|C.RIGHT|C.A]: C.sample(cmd,bits,1,0,false)
+	ok(cmd.buffer=="" and cmd.dir==5,"simultaneous opposing keys stay neutral")
 	cmd=C.fresh()
 	for bits in [C.DOWN,C.DOWN|C.RIGHT,C.RIGHT|C.A]: C.sample(cmd,bits,1,0,false)
 	ok(cmd.buffer=="S1","26 tolerates overlapping keys")
@@ -51,10 +61,26 @@ func run() -> void:
 	for bits in [C.DOWN,C.LEFT,C.RIGHT|C.A]: C.sample(cmd,bits,1,0,false)
 	ok(cmd.buffer!="S1","opposite cardinal interrupts command")
 	cmd=C.fresh();C.sample(cmd,C.DOWN,1,0,false)
-	for i in 9: C.sample(cmd,0,1,0,false)
+	for i in 21: C.sample(cmd,0,1,0,false)
 	C.sample(cmd,C.RIGHT|C.A,1,0,false)
 	ok(cmd.buffer!="S1","expired direction cannot trigger special")
 	var b=fresh()
+	for face in [1,-1]:
+		var forward: int = C.RIGHT if face==1 else C.LEFT
+		for ch in 2:
+			for held in [false,true]:
+				b=fresh([ch,1-ch])
+				b.state.fighters[0].x=(260 if face==1 else 400)*256
+				b.state.fighters[1].x=(400 if face==1 else 260)*256
+				b.step([0,0])
+				for bits in [C.DOWN,(C.DOWN|forward) if held else forward]:
+					for i in 12: b.step([bits,0])
+				b.step([((C.DOWN|forward) if held else forward)|C.A,0])
+				ok(b.state.fighters[0].move=="P%d-S1" % (ch+1),"SDJ with 0.2s steps held=%s face=%d char=%d" % [held,face,ch])
+				ok(b.state.fighters[0].input.dir==(3 if held else 6),"command input preserves movement direction")
+				for i in 20: b.step([0,0])
+				ok(not b.state.entities.is_empty(),"SDJ spawns projectile in battle")
+	b=fresh()
 	for id in b.moves:
 		var m: Dictionary=b.moves[id]
 		if m.kind!="normal": continue

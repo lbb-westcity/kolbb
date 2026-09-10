@@ -12,7 +12,7 @@ const ROLL = 256
 const MAX = 512
 
 static func fresh() -> Dictionary:
-	return {"prev":0,"dir":5,"history":[],"clock":0,"pending":0,"wait":0,"buffer":"","ttl":0,"dash":0}
+	return {"prev":0,"dir":5,"history":[],"motions":[],"clock":0,"pending":0,"wait":0,"buffer":"","ttl":0,"dash":0}
 
 static func direction(bits: int, facing: int) -> int:
 	var x: int = int(bool(bits & RIGHT)) - int(bool(bits & LEFT))
@@ -27,9 +27,9 @@ static func motion(history: Array, sequence: Array, clock: int, window: int) -> 
 		var item: Array = history[j]
 		var d: int = item[0]
 		var t: int = item[1]
-		if clock - t > window or last - t > 8:
+		if clock - t > window or last - t > 20:
 			return false
-		# Ignore release gaps and overlapping direction keys between cardinal inputs.
+		# Simultaneous direction presses do not establish a cardinal order.
 		if d in [1,3,5,7,9]:
 			continue
 		if d == sequence[k]:
@@ -66,19 +66,25 @@ static func sample(c: Dictionary, bits: int, facing: int, char_id: int, frozen: 
 		c.dir = d
 	while not c.history.is_empty() and c.clock-c.history[0][1] > 30:
 		c.history.pop_front()
+	# Specials follow key-down order, even while a previous direction stays held.
+	var pressed: int = edge & 15
+	if pressed: c.motions.append([direction(pressed,facing),c.clock])
+	while not c.motions.is_empty() and c.clock-c.motions[0][1] > 60:
+		c.motions.pop_front()
 	var attack: int = edge & 240
 	var command: String = ""
 	if attack:
 		var punch: bool = bool(attack & (A|C))
 		var kick: bool = bool(attack & (B|D))
-		if punch and motion(c.history,[2,6,2,6],c.clock,30): command = "U1"
-		elif char_id == 1 and kick and motion(c.history,[6,2,4],c.clock,20): command = "S3"
-		elif char_id == 0 and kick and motion(c.history,[6,2],c.clock,20): command = "S3"
-		elif punch and motion(c.history,[2,6],c.clock,20): command = "S1"
-		elif punch and motion(c.history,[2,4],c.clock,20): command = "S2"
+		if punch and motion(c.motions,[2,6,2,6],c.clock,60): command = "U1"
+		elif char_id == 1 and kick and motion(c.motions,[6,2,4],c.clock,40): command = "S3"
+		elif char_id == 0 and kick and motion(c.motions,[6,2],c.clock,40): command = "S3"
+		elif punch and motion(c.motions,[2,6],c.clock,40): command = "S1"
+		elif punch and motion(c.motions,[2,4],c.clock,40): command = "S2"
 	if command != "":
 		c.pending = 0
 		c.history.clear()
+		c.motions.clear()
 	elif edge & MAX or ((edge | c.pending) & (B|C) == (B|C) and (edge & (B|C))):
 		command = "MAX"
 		c.pending = 0

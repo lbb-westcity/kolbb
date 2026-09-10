@@ -218,7 +218,7 @@ func show_moves(origin: String, page: int = -1) -> void:
 			note.size=Vector2(120,34)
 	else:
 		moves_common()
-	text_label("方向依次按，无需斜方向；朝左时左右反转。  A / C = 轻拳 / 重拳    B / D = 轻脚 / 重脚",Vector2(30,291),11,Color("8b9a9f"),580)
+	text_label("方向依次按，可按住再加键；朝左时左右反转。  A / C = 轻拳 / 重拳    B / D = 轻脚 / 重脚",Vector2(30,291),11,Color("8b9a9f"),580)
 	button("← 返回",Vector2(30,313),func(): return_to(origin),120)
 	for i in 4:
 		var key: String=OS.get_keycode_string(settings.keys[4+i])

@@ -158,6 +158,7 @@ func update_facing(f: Dictionary) -> void:
 	if face and face != f.face:
 		f.face = face
 		f.input.history.clear()
+		f.input.motions.clear()
 		f.input.dir = Commands.direction(f.input.prev,face)
 
 func accept_input(f: Dictionary, other: Dictionary) -> void:
