@@ -10,5 +10,5 @@ touch build/.gdignore
 (cd build/windows && zip -q ../KOLBB-Windows-x64.zip KOLBB.exe)
 "$GODOT_BIN" --headless --editor --path . --export-release 'Linux Server' build/server/kolbb-server.x86_64
 cp server/install.sh server/kolbb.service server/kolbb.logrotate build/server/
-tar -czf build/KOLBB-Ubuntu-server.tar.gz -C build/server .
+COPYFILE_DISABLE=1 tar --no-xattrs -czf build/KOLBB-Ubuntu-server.tar.gz -C build/server .
 echo 'Exported build/KOLBB-macOS.zip, build/KOLBB-Windows-x64.zip and build/KOLBB-Ubuntu-server.tar.gz'
