@@ -66,6 +66,8 @@ sudo systemctl restart kolbb
 
 ## 项目资料
 
+- [版本管理与发布](docs/VERSION_CONTROL.md)：提交、版本号、发布检查和回滚；[更新记录](CHANGELOG.md)。
+
 - [在线 Wiki · 下班百科](http://49.235.23.27:7001/)（[文档版](docs/wiki/README.md)）：新手操作、角色技能、完整招式数据、战斗机制、食物与联机指南。
 
 - `docs/GDD.md`：战斗、网络及验收规格。

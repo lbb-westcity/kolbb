@@ -3,3 +3,13 @@
 .DS_Store
 build/
 *.tmp
+
+# Local credentials and Python caches
+.env
+.env.*
+!.env.example
+export_credentials.cfg
+*.pem
+*.key
+__pycache__/
+*.py[cod]
