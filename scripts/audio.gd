@@ -8,6 +8,8 @@ var master_volume: float = 0.8
 var music_volume: float = 0.6
 var sfx_volume: float = 0.8
 var last_sounds: Dictionary = {}
+# Headless simulations validate clips without starting audio decoder playbacks.
+var silent: bool = DisplayServer.get_name()=="headless"
 func _exit_tree() -> void:
 	for player in voices+[music,urgency]:
 		if is_instance_valid(player): player.stop();player.stream=null
@@ -32,17 +34,18 @@ func configure(settings: Dictionary) -> void:
 		music.volume_db=linear_to_db(maxf(0.0001,master_volume*music_volume))
 		urgency.volume_db=music.volume_db-7
 func play_music(id: String) -> void:
-	if id==track or not clips.has(id): return
+	if silent or id==track or not clips.has(id): return
 	track=id;music.stream=clips[id];music.play()
 	urgency.stop()
 func urgent(value: bool) -> void:
+	if silent: return
 	if value and not urgency.playing and clips.has("urgency"):
 		urgency.stream=clips.urgency;urgency.play()
 	elif not value: urgency.stop()
 func pause_music(value: bool) -> void:
 	music.stream_paused=value;urgency.stream_paused=value
 func sound(id: String, pitch: float = 1.0) -> void:
-	if not clips.has(id) or last_sounds.get(id,-1)==Engine.get_process_frames(): return
+	if silent or not clips.has(id) or last_sounds.get(id,-1)==Engine.get_process_frames(): return
 	last_sounds[id]=Engine.get_process_frames()
 	var player: AudioStreamPlayer=voices[0]
 	for p in voices:
