@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://ia7ydhydaw15"
+
+[deps]
+
+files=["res://design/assets.role.translation", "res://design/assets.type.translation", "res://design/assets.description.translation", "res://design/assets.size/ratio.translation", "res://design/assets.style line ref.translation", "res://design/assets.source.translation"]
+
+source_file="res://design/assets.csv"
+dest_files=["res://design/assets.role.translation", "res://design/assets.type.translation", "res://design/assets.description.translation", "res://design/assets.size/ratio.translation", "res://design/assets.style line ref.translation", "res://design/assets.source.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

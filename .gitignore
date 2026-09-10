@@ -1,0 +1,5 @@
+.godot/
+.idea/
+.DS_Store
+build/
+*.tmp

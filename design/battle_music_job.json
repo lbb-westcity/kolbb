@@ -1,0 +1,15 @@
+[
+  {
+    "created_at": "2026-09-10T05:55:31.985655Z",
+    "display_name": "Sonilo Music",
+    "id": "e5186e29-44a8-4e1a-a8b6-a6ae7f858026",
+    "job_type": "sonilo_music",
+    "min_result_url": null,
+    "params": {
+      "duration": 32,
+      "prompt": "Instrumental seamless loop for a late 1990s 2D arcade fighting game in a Shanghai office after hours. 128 BPM in D minor. Punchy dry drum-machine kick and snare, funky FM synth bass, bright syncopated chiptune melody, short sampled keyboard clicks and office stamp percussion. Driving confident combat groove, melodic catchy four bar hook, tasteful jazzy seventh chord bridge, energetic but leaves space for impact sounds. No vocals, no spoken words. Consistent groove, clean loop ending."
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3J7kaQXk0Qnm5xhnfnGitzoUUF1/hf_20260910_055531_e5186e29-44a8-4e1a-a8b6-a6ae7f858026.m4a",
+    "status": "completed"
+  }
+]

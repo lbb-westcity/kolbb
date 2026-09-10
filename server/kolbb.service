@@ -1,0 +1,25 @@
+[Unit]
+Description=KOLBB fighting game room relay
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=kolbb
+Group=kolbb
+WorkingDirectory=/opt/kolbb
+ExecStart=/opt/kolbb/kolbb-server.x86_64 --headless -- --server
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StateDirectory=kolbb
+LogsDirectory=kolbb
+StandardOutput=append:/var/log/kolbb/server.log
+StandardError=append:/var/log/kolbb/server.log
+Environment=HOME=/var/lib/kolbb
+MemoryMax=1G
+LimitNOFILE=4096
+[Install]
+WantedBy=multi-user.target

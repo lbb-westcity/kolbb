@@ -1,0 +1,15 @@
+[
+  {
+    "created_at": "2026-09-10T05:59:39.213033Z",
+    "display_name": "Sonilo Music",
+    "id": "be87501c-1cbe-4b56-a436-36c52ee66a36",
+    "job_type": "sonilo_music",
+    "min_result_url": null,
+    "params": {
+      "duration": 32,
+      "prompt": "Instrumental seamless menu loop for a classic pixel arcade office fighting game. 104 BPM, D minor. Late night Shanghai atmosphere, mellow electric piano chords, warm FM bass, crisp breakbeat drums, playful nostalgic chiptune motif. Understated cool swagger, catchy and polished, arcade character select energy. No vocals, no speech, clean loop."
+    },
+    "result_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3J7kaQXk0Qnm5xhnfnGitzoUUF1/hf_20260910_055939_be87501c-1cbe-4b56-a436-36c52ee66a36.m4a",
+    "status": "completed"
+  }
+]

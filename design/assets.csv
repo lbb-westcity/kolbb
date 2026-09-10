@@ -1,0 +1,31 @@
+id,role,type,description,size/ratio,style line ref,source
+rajer_core,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/rajer_core.png
+rajer_normals,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/rajer_normals.png
+rajer_specials,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/rajer_specials.png
+rajer_air,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/rajer_air.png
+rajer_locomotion,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/rajer_locomotion.png
+rajer_reaction,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/rajer_reaction.png
+rajer_performance,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/rajer_performance.png
+rajer_normals2,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/rajer_normals2.png
+rajer_specials2,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/rajer_specials2.png
+juguai_core,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/juguai_core.png
+juguai_normals,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/juguai_normals.png
+juguai_specials,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/juguai_specials.png
+juguai_air,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/juguai_air.png
+juguai_locomotion,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/juguai_locomotion.png
+juguai_reaction,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/juguai_reaction.png
+juguai_performance,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/juguai_performance.png
+juguai_normals2,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/juguai_normals2.png
+juguai_specials2,fighter animation,image,24 poses plus palette alternate,384x224 cells; 4x6 atlas,design/style.txt,ImageGen; design/generated/juguai_specials2.png
+office,stage,image,after-hours office,640x360,design/style.txt,ImageGen
+props,skill objects,image,12 object illustrations,4x3 atlas,design/style.txt,ImageGen
+animated_props,skill object animation,image,22 occupied cells; two reserved transparent cells,6x4 atlas,design/style.txt,ImageGen
+logo,company mark,reference,ivory lbb green accents,on clothing and stage,docs/VISUAL_BIBLE.md,raw_assets/lbb-logo.png
+ui,interface and feedback,engine drawing,HUD menus sparks camera feedback,640x360,design/style.txt,Godot native drawing
+font,Chinese UI,font,Noto Sans CJK SC Regular,OTF,docs/VISUAL_BIBLE.md,notofonts/noto-cjk; OFL
+menu,menu music,audio,crossfaded instrumental loop,OGG stereo 44.1kHz,docs/GDD.md,Higgsfield sonilo_music; design/menu_music_job.json
+battle,battle music,audio,crossfaded instrumental loop,OGG stereo 44.1kHz,docs/GDD.md,Higgsfield sonilo_music; design/battle_music_job.json
+heavy,heavy impact,audio,isolated heavy hit,WAV mono 44.1kHz,docs/GDD.md,Higgsfield seed_audio; design/impact_audio_job.json
+sfx,event cues,audio,34 original synthetic sound effects,WAV mono 44.1kHz,docs/GDD.md,tools/make_sfx.py
+victory,result music,audio,original D-minor cadence,5 seconds,docs/GDD.md,tools/make_sfx.py
+urgency,last twenty seconds,audio,original percussion layer,8 second loop,docs/GDD.md,tools/make_sfx.py

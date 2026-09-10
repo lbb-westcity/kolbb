@@ -1,0 +1,10 @@
+/var/log/kolbb/server.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    su kolbb kolbb
+}
