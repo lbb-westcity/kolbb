@@ -61,8 +61,8 @@ func sample(battle, slot: int = 1) -> int:
 		if level==2 and me.confirmed_hit and me.energy>=200 and me.max==0 and (me.move.ends_with("5C") or me.move.ends_with("5D") or me.move.ends_with("2C")):
 			queue=[C.MAX,0]
 		elif me.max>120 and me.move.ends_with("S1"):
-			sequence([6,2,3] if me.char==0 else [2,1,4],C.B if me.char==0 else C.A,face)
-		else: sequence([2,3,6],C.C,face)
+			sequence([6,2] if me.char==0 else [2,4],C.B if me.char==0 else C.A,face)
+		else: sequence([2,6],C.C,face)
 	elif not seen.food.is_empty() and me.hp<900 and distance>85 and roll<70:
 		var foodx: int=seen.food[0].x
 		var d: int=5 if absi(foodx-me.x)<12*256 else 6 if (foodx-me.x)*face>0 else 4
@@ -72,19 +72,19 @@ func sample(battle, slot: int = 1) -> int:
 		if seen.warning and level==2: d=9
 		for i in [18,12,8][level]: queue.append(bits(d,face))
 	elif distance<105 and me.energy>=100 and roll<22:
-		sequence([2,3,6,2,3,6],C.C,face)
+		sequence([2,6,2,6],C.C,face)
 	elif me.energy>=200 and me.max==0 and roll<13 and level>0:
 		queue=[C.MAX,0]
 	elif me.char==0 and me.hp<750 and me.energy>=100 and distance>130 and roll<35:
-		sequence([2,1,4],C.A,face)
+		sequence([2,4],C.A,face)
 	elif me.char==0 and me.energy>=100 and distance>90 and distance<230 and roll<55:
-		sequence([6,2,3],C.B,face)
+		sequence([6,2],C.B,face)
 	elif distance>150 and roll<60:
-		sequence([2,3,6],C.A,face)
+		sequence([2,6],C.A,face)
 	elif distance<58 and me.char==1 and roll<25:
-		sequence([6,3,2,1,4],C.D,face)
+		sequence([6,2,4],C.D,face)
 	elif distance<95:
-		if me.char==1 and roll<40: sequence([2,1,4],C.A,face)
+		if me.char==1 and roll<40: sequence([2,4],C.A,face)
 		else:
 			sequence([2 if roll<30 else 5], [C.A,C.B,C.C,C.D][random_int(4)],face)
 	elif distance<190 and roll<20:

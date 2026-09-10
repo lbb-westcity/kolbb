@@ -200,7 +200,7 @@ func show_moves(origin: String, page: int = -1) -> void:
 		text_label(["用飞行道具控制距离，\n召唤落地，抢回主动。","用积分逼近对手，\n面谈压制，近身抓取。"][moves_page],Vector2(30,197),11,Color("f0e7d5"),162)
 		text_label("MAX 接触取消",Vector2(30,240),11,Color("ffd166"),162)
 		text_label(["大便投掷 ↔ 肯德基挚友","积分投掷 ↔ 绩效面谈"][moves_page],Vector2(30,258),11,Color("f0e7d5"),162)
-		var inputs: Array=["↓ ↘ →  236 + A/C","↓ ↙ ←  214 + A/C","→ ↓ ↘  623 + B/D" if moves_page==0 else "→ ↘ ↓ ↙ ←  63214 + B/D","(↓ ↘ →) ×2  236236 + A/C"]
+		var inputs: Array=["↓ →  + A/C","↓ ←  + A/C","→ ↓  + B/D" if moves_page==0 else "→ ↓ ←  + B/D","↓ → ↓ →  + A/C"]
 		var notes: Array=["飞行道具 · 命中糊脸","汉堡：自己 +200\n对手 −200","召唤击飞 · 三片披萨\n自己每片 +50","超必杀 · 前冲抓取"] if moves_page==0 else ["飞行道具 · 命中大笑","气泡 + 文件夹 · 两段打击","近身指令投 · 不可拆投","超必杀 · 五波文件，可防御"]
 		for i in 4:
 			var move: Dictionary=battle.moves["P%d-%s" % [moves_page+1,["S1","S2","S3","U1"][i]]]
@@ -218,7 +218,7 @@ func show_moves(origin: String, page: int = -1) -> void:
 			note.size=Vector2(120,34)
 	else:
 		moves_common()
-	text_label("方向按面朝右示意；换边左右反转。  A / C = 轻拳 / 重拳    B / D = 轻脚 / 重脚",Vector2(30,291),11,Color("8b9a9f"),580)
+	text_label("方向依次按，无需斜方向；朝左时左右反转。  A / C = 轻拳 / 重拳    B / D = 轻脚 / 重脚",Vector2(30,291),11,Color("8b9a9f"),580)
 	button("← 返回",Vector2(30,313),func(): return_to(origin),120)
 	for i in 4:
 		var key: String=OS.get_keycode_string(settings.keys[4+i])
@@ -235,7 +235,7 @@ func moves_common() -> void:
 	var max_key: String=OS.get_keycode_string(settings.keys[9])
 	text_label("%s 或 A+B：翻滚，仍会被抓\n%s 或 B+C：MAX，消耗 100 能量\n重拳 / 重脚命中后快速 MAX：200 能量\nMAX 内超必杀：再花 100 并清空 MAX" % [roll_key,max_key],Vector2(330,119),12,Color("f0e7d5"),280)
 	text_label("04  实战提示",Vector2(330,207),14,Color("ffd166"),280)
-	text_label("先用轻拳确认命中，再试 236 + 重拳。\n普通攻击无防御削血；必杀削血不会 KO。\n食物只由物主获益，别误吃对手的汉堡。",Vector2(330,231),12,Color("f0e7d5"),280)
+	text_label("先用轻拳确认命中，再试 下、前 + 重拳。\n普通攻击无防御削血；必杀削血不会 KO。\n食物只由物主获益，别误吃对手的汉堡。",Vector2(330,231),12,Color("f0e7d5"),280)
 func return_to(origin: String) -> void:
 	match origin:
 		"select": show_select()

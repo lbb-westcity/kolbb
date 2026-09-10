@@ -25,14 +25,35 @@ func run() -> void:
 	ok(C.direction(C.UP|C.DOWN,-1)==5,"SOCD vertical")
 	ok(C.direction(C.RIGHT|C.DOWN,-1)==1,"relative facing")
 	var cmd: Dictionary = C.fresh()
+	for face in [1,-1]:
+		var forward: int = C.RIGHT if face==1 else C.LEFT
+		var back: int = C.LEFT if face==1 else C.RIGHT
+		for ch in 2:
+			for attack in [C.A,C.C,C.B,C.D]:
+				var cases: Array = [[[C.DOWN,forward],"S1"],[[C.DOWN,back],"S2"],[[C.DOWN,forward,C.DOWN,forward],"U1"]] if attack in [C.A,C.C] else [[[forward,C.DOWN] if ch==0 else [forward,C.DOWN,back],"S3"]]
+				for entry in cases:
+					cmd=C.fresh()
+					for bits in entry[0]:
+						C.sample(cmd,0,face,ch,false)
+						C.sample(cmd,bits,face,ch,false)
+					C.sample(cmd,attack,face,ch,false)
+					ok(cmd.buffer==entry[1],"cardinal command char=%d face=%d attack=%d %s" % [ch,face,attack,entry[1]])
+	cmd=C.fresh()
 	for bits in [C.DOWN,C.DOWN|C.RIGHT,C.RIGHT|C.A]: C.sample(cmd,bits,1,0,false)
-	ok(cmd.buffer=="S1","236 punch recognition")
+	ok(cmd.buffer=="S1","26 tolerates overlapping keys")
 	cmd=C.fresh()
 	for bits in [C.DOWN,C.DOWN|C.LEFT,C.LEFT|C.A]: C.sample(cmd,bits,-1,0,false)
-	ok(cmd.buffer=="S1","mirrored 236 recognition")
+	ok(cmd.buffer=="S1","mirrored 26 tolerates overlapping keys")
 	cmd=C.fresh()
 	for bits in [C.DOWN,C.DOWN|C.RIGHT,C.RIGHT,C.DOWN,C.DOWN|C.RIGHT,C.RIGHT|C.C]: C.sample(cmd,bits,1,0,false)
 	ok(cmd.buffer=="U1","super priority")
+	cmd=C.fresh()
+	for bits in [C.DOWN,C.LEFT,C.RIGHT|C.A]: C.sample(cmd,bits,1,0,false)
+	ok(cmd.buffer!="S1","opposite cardinal interrupts command")
+	cmd=C.fresh();C.sample(cmd,C.DOWN,1,0,false)
+	for i in 9: C.sample(cmd,0,1,0,false)
+	C.sample(cmd,C.RIGHT|C.A,1,0,false)
+	ok(cmd.buffer!="S1","expired direction cannot trigger special")
 	var b=fresh()
 	for id in b.moves:
 		var m: Dictionary=b.moves[id]

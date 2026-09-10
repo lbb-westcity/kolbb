@@ -29,7 +29,8 @@ static func motion(history: Array, sequence: Array, clock: int, window: int) -> 
 		var t: int = item[1]
 		if clock - t > window or last - t > 8:
 			return false
-		if d == 5:
+		# Ignore release gaps and overlapping direction keys between cardinal inputs.
+		if d in [1,3,5,7,9]:
 			continue
 		if d == sequence[k]:
 			if k == sequence.size()-1:
@@ -70,11 +71,11 @@ static func sample(c: Dictionary, bits: int, facing: int, char_id: int, frozen: 
 	if attack:
 		var punch: bool = bool(attack & (A|C))
 		var kick: bool = bool(attack & (B|D))
-		if punch and motion(c.history,[2,3,6,2,3,6],c.clock,30): command = "U1"
-		elif char_id == 1 and kick and motion(c.history,[6,3,2,1,4],c.clock,20): command = "S3"
-		elif char_id == 0 and kick and motion(c.history,[6,2,3],c.clock,20): command = "S3"
-		elif punch and motion(c.history,[2,3,6],c.clock,20): command = "S1"
-		elif punch and motion(c.history,[2,1,4],c.clock,20): command = "S2"
+		if punch and motion(c.history,[2,6,2,6],c.clock,30): command = "U1"
+		elif char_id == 1 and kick and motion(c.history,[6,2,4],c.clock,20): command = "S3"
+		elif char_id == 0 and kick and motion(c.history,[6,2],c.clock,20): command = "S3"
+		elif punch and motion(c.history,[2,6],c.clock,20): command = "S1"
+		elif punch and motion(c.history,[2,4],c.clock,20): command = "S2"
 	if command != "":
 		c.pending = 0
 		c.history.clear()
