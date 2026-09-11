@@ -13,8 +13,8 @@ const BODY_WIDTH = [18,24,18]
 const THROW_RANGE = [50,56,50]
 const PROJECTILE_OFFSET = [32,36,32]
 const PROJECTILE_HEIGHT = [88,84,88]
-const PROJECTILE_SPEED = [4,5,4]
-const PROJECTILE_LIFE = [150,120,150]
+const PROJECTILE_SPEED = [4,4,4]
+const PROJECTILE_LIFE = [150,150,150]
 const PROJECTILE_RADIUS = [9,8,10]
 static var CRC_TABLE: PackedInt64Array = make_crc_table()
 var moves: Dictionary = {}
@@ -28,13 +28,13 @@ func _init() -> void:
 			moves[id][key] = int(moves[id][key])
 	for ch in 2:
 		var p: String = "P%d-" % (ch+1)
-		add_move(p+"S1", ["大便投掷","积分投掷"][ch],16+ch*2,1,21+ch*2,55+ch*5,26+ch*2,16+ch,0,"projectile")
-		add_move(p+"S2", ["地面汉堡","绩效面谈"][ch],24 if ch==0 else 10,1 if ch==0 else 14,29 if ch==0 else 22,0 if ch==0 else 25,16,10,100 if ch==0 else 0,"burger" if ch==0 else "talk")
-		add_move(p+"S3", ["肯德基挚友","强制加班"][ch],28 if ch==0 else 7,4 if ch==0 else 2,30,120 if ch==0 else 130,24,24,100 if ch==0 else 0,"summon" if ch==0 else "grab")
+		add_move(p+"S1", ["大便投掷","积分投掷"][ch],16+ch*2,1,18 if ch==0 else 23,60,26+ch*2,16+ch,0,"projectile")
+		add_move(p+"S2", ["地面汉堡","绩效面谈"][ch],24 if ch==0 else 10,1 if ch==0 else 14,23 if ch==0 else 22,0 if ch==0 else 25,16,10,50 if ch==0 else 0,"burger" if ch==0 else "talk")
+		add_move(p+"S3", ["肯德基挚友","强制加班"][ch],28 if ch==0 else 7,4 if ch==0 else 2,24 if ch==0 else 30,120 if ch==0 else 130,24,24,50 if ch==0 else 0,"summon" if ch==0 else "grab")
 		add_move(p+"U1", ["捆绑 play","你被解雇了！"][ch],16 if ch==0 else 18,2 if ch==0 else 36,36 if ch==0 else 30,240 if ch==0 else 40,14,6,100,"room" if ch==0 else "papers")
 		add_move(PREFIX[ch]+"THROW","普通投",4,1,25,100+ch*10,24,0,0,"throw")
-	add_move("P3-S1","篮球",16,1,21,60,26,16,0,"projectile")
-	add_move("P3-S2","铁山靠",12,8,26,90,28,18,0,"shoulder")
+	add_move("P3-S1","篮球",16,1,21,50,26,16,0,"projectile")
+	add_move("P3-S2","铁山靠",12,8,28,75,26,18,0,"shoulder")
 	add_move("P3-S3","音爆",10,6,28,80,24,18,0,"sonic")
 	moves["P3-S3"].launch=true
 	add_move("P3-U1","鸡你太美",18,28,30,40,14,12,100,"dance")
@@ -225,7 +225,6 @@ func accept_input(f: Dictionary, other: Dictionary) -> void:
 				return
 			var cost: int = moves[id].cost
 			var enhanced: bool = cmd=="U1" and f.max>0
-			if enhanced: cost += 100
 			if not pay(f,cost): return
 			if cancel and moves[f.move].kind != "normal" and cmd != "U1": f.max -= 120
 			if not cancel: f.chain.clear()

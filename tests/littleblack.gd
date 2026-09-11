@@ -51,16 +51,16 @@ func run() -> void:
 			b=fresh(ch,face);action(b,"P3-U1",42);advance(b,1)
 			assert(b.state.fighters[1].mode=="down" and b.state.fighters[1].hard,"last dance hit knocks down")
 			b=fresh(ch,face);action(b,"P3-S2")
-			assert(advance(b,85).size()==1 and b.state.fighters[1].hp==910,"shoulder one hit")
+			assert(advance(b,85).size()==1 and b.state.fighters[1].hp==925,"shoulder one hit")
 			b=fresh(ch,face);action(b,"P3-S2")
-			assert(advance(b,85,back).size()==1 and b.state.fighters[1].hp==991,"shoulder can be blocked")
+			assert(advance(b,85,back).size()==1 and b.state.fighters[1].hp==993,"shoulder can be blocked")
 			b=fresh(ch,face);foe=b.state.fighters[1];foe.y-=100*256;foe.mode="air"
 			action(b,"P3-S3",10);advance(b,1)
 			assert(foe.hp==920 and foe.vy<0,"sonic hits airborne enemy")
 			b=fresh(ch,face);action(b,"P3-S3",10);advance(b,1,back)
 			assert(b.state.fighters[1].hp==992 and b.state.fighters[1].vy==0,"blocked sonic cannot launch")
 			b=fresh(ch,face);action(b,"P3-S1",16);advance(b,15)
-			assert(b.state.fighters[1].hp==940 and b.state.fighters[1].reaction=="" and b.state.fighters[1].stain==0,"basketball has ordinary hurt")
+			assert(b.state.fighters[1].hp==950 and b.state.fighters[1].reaction=="" and b.state.fighters[1].stain==0,"basketball has ordinary hurt")
 	# Active windows include their first/last frame, never startup/recovery or dance gaps.
 	var b=fresh()
 	for id in ["P3-S2","P3-S3","P3-U1"]:
@@ -74,7 +74,7 @@ func run() -> void:
 	f.energy=99;f.input.buffer="U1";b.accept_input(f,b.state.fighters[1])
 	assert(f.mode=="idle" and f.energy==99,"insufficient meter")
 	f.energy=200;f.max=400;f.input.buffer="U1";b.accept_input(f,b.state.fighters[1])
-	assert(f.move=="P3-U1" and f.energy==0 and f.max==0 and f.enhanced)
+	assert(f.move=="P3-U1" and f.energy==100 and f.max==0 and f.enhanced)
 	b=fresh();f=b.state.fighters[0];f.contact=true;f.max=121;action(b,"P3-S1",17)
 	assert(b.can_cancel(f,"P3-S2") and b.can_cancel(f,"P3-U1"))
 	f.max=120;assert(not b.can_cancel(f,"P3-S2"))

@@ -238,7 +238,7 @@ func moves_common() -> void:
 	text_label("03  翻滚与 MAX",Vector2(330,95),14,Color("ffd166"),280)
 	var roll_key: String=OS.get_keycode_string(settings.keys[8])
 	var max_key: String=OS.get_keycode_string(settings.keys[9])
-	text_label("%s 或 A+B：翻滚，仍会被抓\n%s 或 B+C：MAX，消耗 100 能量\n重拳 / 重脚命中后快速 MAX：200 能量\nMAX 内超必杀：再花 100 并清空 MAX" % [roll_key,max_key],Vector2(330,119),12,Color("f0e7d5"),280)
+	text_label("%s 或 A+B：翻滚，仍会被抓\n%s 或 B+C：MAX，消耗 100 能量\n重拳 / 重脚命中后快速 MAX：200 能量\nMAX 内超必杀：本次 100，清空 MAX" % [roll_key,max_key],Vector2(330,119),12,Color("f0e7d5"),280)
 	text_label("04  实战提示",Vector2(330,207),14,Color("ffd166"),280)
 	text_label("先用轻拳确认命中，再试 下、前 + 重拳。\n普通攻击无防御削血；必杀削血不会 KO。\n食物只由物主获益，别误吃对手的汉堡。",Vector2(330,231),12,Color("f0e7d5"),280)
 func return_to(origin: String) -> void:

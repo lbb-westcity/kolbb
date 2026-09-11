@@ -41,6 +41,8 @@ Windows 用户解压 `KOLBB-Windows-x64.zip`，运行 `KOLBB.exe`；资源已内
 
 ```sh
 bash tools/check.sh
+# 三档 CPU、三组对位、每组 32 个种子并换边，共 576 场：
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/balance.gd -- --tournament 32 2000
 # 32 场包含抖动、5% 丢包和短时断流的完整模拟联机对局：
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/network_chaos.gd
 bash tools/export.sh
@@ -67,6 +69,7 @@ sudo systemctl restart kolbb
 ## 项目资料
 
 - [版本管理与发布](docs/VERSION_CONTROL.md)：提交、版本号、发布检查和回滚；[更新记录](CHANGELOG.md)。
+- [三角色平衡验证](docs/BALANCE.md)：当前数值调整、换边对局结果与复测方法。
 
 - [在线 Wiki · 下班百科](http://49.235.23.27:7001/)（[文档版](docs/wiki/README.md)）：新手操作、角色技能、完整招式数据、战斗机制、食物与联机指南。
 

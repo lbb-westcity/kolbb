@@ -29,6 +29,10 @@ func sequence(dirs: Array, attack: int, face: int) -> void:
 		queue.append(bits(d,face))
 	if queue.is_empty(): queue.append(0)
 	queue[queue.size()-1] |= attack
+	# Normal buttons wait two more samples for A+B/B+C; retain the intended stance.
+	var stance: int = int(queue.back()) & 15
+	queue.append(stance)
+	queue.append(stance)
 	queue.append(0)
 
 func sample(battle, slot: int = 1) -> int:
@@ -75,9 +79,9 @@ func sample(battle, slot: int = 1) -> int:
 		sequence([2,6,2,6],C.C,face)
 	elif me.energy>=200 and me.max==0 and roll<13 and level>0:
 		queue=[C.MAX,0]
-	elif me.char==0 and me.hp<750 and me.energy>=100 and distance>130 and roll<35:
+	elif me.char==0 and me.hp<750 and me.energy>=battle.moves["P1-S2"].cost and distance>130 and roll<35:
 		sequence([2,4],C.A,face)
-	elif me.char==0 and me.energy>=100 and distance>90 and distance<230 and roll<55:
+	elif me.char==0 and me.energy>=battle.moves["P1-S3"].cost and distance>90 and distance<230 and roll<55:
 		sequence([6,2],C.B,face)
 	elif me.char==2 and foe.y<292*256 and distance<100 and roll<75:
 		sequence([6,2],C.B,face)
@@ -90,7 +94,7 @@ func sample(battle, slot: int = 1) -> int:
 	elif distance<95:
 		if me.char in [1,2] and roll<40: sequence([2,4],C.A,face)
 		else:
-			sequence([2 if roll<30 else 5], [C.A,C.B,C.C,C.D][random_int(4)],face)
+			sequence([2 if random_int(100)<30 else 5], [C.A,C.B,C.C,C.D][random_int(4)],face)
 	elif distance<190 and roll<20:
 		for i in 8: queue.append(bits(9,face))
 		queue.append(bits(6,face)|C.D)

@@ -6,7 +6,7 @@ class Relay extends "res://scripts/network.gd":
 func _initialize() -> void: call_deferred("run")
 func run() -> void:
 	var relay=Relay.new();root.add_child(relay);relay.server_mode=true
-	relay.control("hello",{"version":"kolbb-0.1-rules-1-art-2"})
+	relay.control("hello",{"version":"kolbb-0.1.2-rules-2-art-3"})
 	assert(relay.sent[-1].action=="error" and relay.verified.is_empty(),"old version rejected")
 	relay.control("hello",{"version":relay.VERSION})
 	assert(relay.verified.has(0),"current version accepted")
