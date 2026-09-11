@@ -13,3 +13,6 @@ export_credentials.cfg
 *.key
 __pycache__/
 *.py[cod]
+
+# Rebuildable sprite processing cache (raw action sheets remain tracked)
+design/littleblack/processed/

@@ -28,12 +28,12 @@ func run() -> void:
 	for face in [1,-1]:
 		var forward: int = C.RIGHT if face==1 else C.LEFT
 		var back: int = C.LEFT if face==1 else C.RIGHT
-		for ch in 2:
+		for ch in Battle.NAMES.size():
 			for attack in [C.A,C.C,C.B,C.D]:
-				var cases: Array = [[[C.DOWN,forward],"S1"],[[C.DOWN,back],"S2"],[[C.DOWN,forward,C.DOWN,forward],"U1"]] if attack in [C.A,C.C] else [[[forward,C.DOWN] if ch==0 else [forward,C.DOWN,back],"S3"]]
+				var cases: Array = [[[C.DOWN,forward],"S1"],[[C.DOWN,back],"S2"],[[C.DOWN,forward,C.DOWN,forward],"U1"]] if attack in [C.A,C.C] else [[[forward,C.DOWN,back] if ch==1 else [forward,C.DOWN],"S3"]]
 				for entry in cases:
 					for held in [false,true]:
-						var trial = fresh([ch,1-ch])
+						var trial = fresh([ch,(ch+1)%Battle.NAMES.size()])
 						trial.state.fighters[0].x=(260 if face==1 else 400)*256
 						trial.state.fighters[1].x=(400 if face==1 else 260)*256
 						trial.state.fighters[0].energy=300
@@ -67,9 +67,9 @@ func run() -> void:
 	var b=fresh()
 	for face in [1,-1]:
 		var forward: int = C.RIGHT if face==1 else C.LEFT
-		for ch in 2:
+		for ch in Battle.NAMES.size():
 			for held in [false,true]:
-				b=fresh([ch,1-ch])
+				b=fresh([ch,(ch+1)%Battle.NAMES.size()])
 				b.state.fighters[0].x=(260 if face==1 else 400)*256
 				b.state.fighters[1].x=(400 if face==1 else 260)*256
 				b.step([0,0])
@@ -85,7 +85,7 @@ func run() -> void:
 		var m: Dictionary=b.moves[id]
 		if m.kind!="normal": continue
 		var f: Dictionary=b.state.fighters[0]
-		f.char=0 if id.begins_with("RW") else 1
+		f.char=Battle.PREFIX.find(id.split("-")[0]+"-")
 		action(b,0,id,m.s-1)
 		ok(not b.attackbox(f).has_area(),id+" startup")
 		f.age=m.s

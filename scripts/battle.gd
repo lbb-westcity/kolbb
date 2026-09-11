@@ -2,8 +2,20 @@ extends RefCounted
 const Commands = preload("res://scripts/commands.gd")
 const FP = 256
 const GROUND = 292 * FP
-const NAMES = ["RajerWei", "JU GUAI"]
-const PREFIX = ["RW-", "JG-"]
+const NAMES = ["RajerWei", "JU GUAI", "little black"]
+const PREFIX = ["RW-", "JG-", "LB-"]
+const ART = ["rajer", "juguai", "littleblack"]
+const FORWARD_SPEED = [704,576,704]
+const BACK_SPEED = [576,448,576]
+const RUN_SPEED = [1152,1024,1152]
+const BACKSTEP_DISTANCE = [64,56,64]
+const BODY_WIDTH = [18,24,18]
+const THROW_RANGE = [50,56,50]
+const PROJECTILE_OFFSET = [32,36,32]
+const PROJECTILE_HEIGHT = [88,84,88]
+const PROJECTILE_SPEED = [4,5,4]
+const PROJECTILE_LIFE = [150,120,150]
+const PROJECTILE_RADIUS = [9,8,10]
 static var CRC_TABLE: PackedInt64Array = make_crc_table()
 var moves: Dictionary = {}
 var state: Dictionary = {}
@@ -21,10 +33,17 @@ func _init() -> void:
 		add_move(p+"S3", ["肯德基挚友","强制加班"][ch],28 if ch==0 else 7,4 if ch==0 else 2,30,120 if ch==0 else 130,24,24,100 if ch==0 else 0,"summon" if ch==0 else "grab")
 		add_move(p+"U1", ["捆绑 play","你被解雇了！"][ch],16 if ch==0 else 18,2 if ch==0 else 36,36 if ch==0 else 30,240 if ch==0 else 40,14,6,100,"room" if ch==0 else "papers")
 		add_move(PREFIX[ch]+"THROW","普通投",4,1,25,100+ch*10,24,0,0,"throw")
+	add_move("P3-S1","篮球",16,1,21,60,26,16,0,"projectile")
+	add_move("P3-S2","铁山靠",12,8,26,90,28,18,0,"shoulder")
+	add_move("P3-S3","音爆",10,6,28,80,24,18,0,"sonic")
+	moves["P3-S3"].launch=true
+	add_move("P3-U1","鸡你太美",18,28,30,40,14,12,100,"dance")
+	add_move("P3-S4","露出鸡脚",14,21,26,40,22,16,0,"trousers")
+	add_move("LB-THROW","普通投",4,1,25,100,24,0,0,"throw")
 	reset()
 
 func add_move(id: String, title: String, s: int, a: int, r: int, damage: int, h: int, b: int, cost: int, kind: String) -> void:
-	moves[id] = {"id":id,"name":title,"s":s,"a":a,"r":r,"damage":damage,"h":h,"b":b,"cost":cost,"kind":kind,"box":[0,0,0,0],"level":"mid","launch":false,"hard":false,"cancel":"S" if kind in ["projectile","summon","talk"] else ""}
+	moves[id] = {"id":id,"name":title,"s":s,"a":a,"r":r,"damage":damage,"h":h,"b":b,"cost":cost,"kind":kind,"box":[0,0,0,0],"level":"mid","launch":false,"hard":false,"cancel":"S" if kind in ["projectile","summon","talk","shoulder","sonic"] else ""}
 
 func fighter(ch: int, slot: int, energy: int = 0) -> Dictionary:
 	return {"char":ch,"slot":slot,"x":(160+slot*320)*FP,"y":GROUND,"vx":0,"vy":0,"face":1 if slot==0 else -1,"hp":1000,"energy":energy,"max":0,"max_total":600,"mode":"idle","age":0,"action_id":0,"move":"","hits":[],"contact":false,"confirmed_hit":false,"chain":[],"combo":0,"combo_damage":0,"combo_age":0,"combo_display":0,"combo_moves":[],"combo_scale":100,"hitstun":0,"invthrow":0,"airhits":0,"air_attack":false,"hard":false,"knock":0,"knock_time":0,"knock_rem":0,"pickup":0,"reaction":"","reaction_time":0,"stain":0,"input":Commands.fresh(),"run":false,"jump_big":false,"jump_forward":0,"throw_back":false,"enhanced":false,"target_x":0,"start_x":0,"blocked_this":false,"energy_awards":[],"flash_meter":0}
@@ -187,14 +206,14 @@ func accept_input(f: Dictionary, other: Dictionary) -> void:
 		Commands.consume(f.input)
 		event("roll",f.slot)
 		return
-	if cmd in ["A","B","C","D","S1","S2","S3","U1"]:
+	if cmd in ["A","B","C","D","S1","S2","S3","S4","U1"]:
 		var special: bool = cmd.begins_with("S") or cmd=="U1"
 		var id: String
 		if special:
 			id = "P%d-%s" % [f.char+1,cmd]
 		else:
 			id = PREFIX[f.char] + ("j" if not grounded(f) else "2" if dir in [1,2,3] else "5") + cmd
-			if cmd == "C" and dir in [4,6] and grounded(f) and abs(f.x-other.x) <= (50+6*f.char)*FP and is_free(f):
+			if cmd == "C" and dir in [4,6] and grounded(f) and abs(f.x-other.x) <= THROW_RANGE[f.char]*FP and is_free(f):
 				id = PREFIX[f.char]+"THROW"
 		var cancel: bool = can_cancel(f,id)
 		if (is_free(f) or cancel) and (grounded(f) or (not special and not f.air_attack)):
@@ -270,14 +289,15 @@ func can_cancel(f: Dictionary, id: String) -> bool:
 		return "Q" in next.cancel or ("L" in next.cancel and lights < 2)
 	if id.ends_with("U1"): return "S" in old.cancel
 	if f.max <= 120: return false
-	var pair: Array = ["P1-S1","P1-S3"] if f.char==0 else ["P2-S1","P2-S2"]
+	var pair: Array = [["P1-S1","P1-S3"],["P2-S1","P2-S2"],["P3-S1","P3-S2"]][f.char]
 	return f.move in pair and id in pair
 
 func can_spawn(f: Dictionary, id: String) -> bool:
 	var kind: String = moves[id].kind
 	for e in state.entities:
 		if e.owner != f.slot or e.get("dead",false): continue
-		if kind=="projectile" and e.kind=="projectile": return false
+		if kind=="projectile" and e.kind=="projectile" and moves[e.move].kind=="projectile": return false
+		if kind=="trousers" and e.get("move","")==id: return false
 		if kind=="burger" and e.kind=="burger": return false
 		if kind=="summon" and e.kind in ["summon","pizza"]: return false
 	return true
@@ -289,20 +309,22 @@ func move_fighter(f: Dictionary) -> void:
 		f.knock_time -= 1
 	if f.mode in ["walk","run"]:
 		var forward: bool = f.input.dir==6
-		var speed: int = (704-128*f.char) if forward else (576-128*f.char)
-		if f.mode=="run": speed = 1152-128*f.char
+		var speed: int = FORWARD_SPEED[f.char] if forward else BACK_SPEED[f.char]
+		if f.mode=="run": speed = RUN_SPEED[f.char]
 		f.x += speed*f.face*(1 if forward else -1)
 	elif f.mode=="backstep":
-		f.x = f.start_x-f.face*((64-8*f.char)*FP*(f.age+1)/24)
+		f.x = f.start_x-f.face*(BACKSTEP_DISTANCE[f.char]*FP*(f.age+1)/24)
 	elif f.mode=="roll":
 		f.x += (80*FP*(f.age+1)/30-80*FP*f.age/30)*f.vx
 	elif f.mode=="attack" and moves[f.move].kind=="room" and f.age<16:
+		f.x += f.face*4*FP
+	elif f.mode=="attack" and moves[f.move].kind=="shoulder" and f.age>=4 and f.age<20:
 		f.x += f.face*4*FP
 	if f.mode=="jump_prepare" and f.age >= (4 if f.jump_big else 3):
 		f.mode = "air"
 		f.age = 0
 		f.vy = -1984 if f.jump_big else -1664 if f.input.dir in [7,8,9] else -1280
-		var speed: int = (1152-128*f.char) if f.jump_big else (704-128*f.char) if f.jump_forward>0 else (576-128*f.char)
+		var speed: int = (RUN_SPEED[f.char]) if f.jump_big else FORWARD_SPEED[f.char] if f.jump_forward>0 else BACK_SPEED[f.char]
 		f.vx = speed*f.face*f.jump_forward
 		f.air_attack = false
 		event("jump",f.slot)
@@ -319,7 +341,7 @@ func move_fighter(f: Dictionary) -> void:
 			f.mode = "down" if f.mode=="hurt" else "land"
 			f.air_attack = false
 			event("land",f.slot)
-	var width: int = (18+6*f.char)*FP
+	var width: int = BODY_WIDTH[f.char]*FP
 	var unclamped: int = f.x
 	f.x = clampi(f.x,16*FP+width,624*FP-width)
 	if f.knock_time>0 and unclamped!=f.x:
@@ -330,8 +352,8 @@ func push_fighters() -> void:
 	var a: Dictionary = state.fighters[0]
 	var b: Dictionary = state.fighters[1]
 	if not grounded(a) or not grounded(b) or a.mode=="roll" or b.mode=="roll": return
-	var aw: int = (18+6*a.char)*FP
-	var bw: int = (18+6*b.char)*FP
+	var aw: int = BODY_WIDTH[a.char]*FP
+	var bw: int = BODY_WIDTH[b.char]*FP
 	var overlap: int = aw+bw-absi(a.x-b.x)
 	if overlap<=0: return
 	var sign_x: int = 1 if b.x>=a.x else -1
@@ -350,8 +372,10 @@ func spawn_events(f: Dictionary) -> void:
 	var m: Dictionary = moves[f.move]
 	var t: int = f.age
 	if m.kind=="projectile" and t==m.s:
-		entity({"kind":"projectile","owner":f.slot,"x":f.x+f.face*(32+4*f.char)*FP,"y":f.y-(88-4*f.char)*FP,"vx":f.face*(4+f.char)*FP,"life":150-30*f.char,"age":-1,"char":f.char,"move":f.move,"face":f.face,"hits":[],"source_frame":f.action_id})
+		entity({"kind":"projectile","owner":f.slot,"x":f.x+f.face*PROJECTILE_OFFSET[f.char]*FP,"y":f.y-PROJECTILE_HEIGHT[f.char]*FP,"vx":f.face*PROJECTILE_SPEED[f.char]*FP,"life":PROJECTILE_LIFE[f.char],"age":-1,"char":f.char,"move":f.move,"face":f.face,"hits":[],"source_frame":f.action_id})
 		event("projectile",f.slot)
+	elif m.kind=="trousers" and t==m.s:
+		entity({"kind":"projectile","owner":f.slot,"x":f.x+f.face*32*FP,"y":f.y-88*FP,"vx":f.face*5*FP,"life":100,"age":-1,"char":f.char,"move":f.move,"face":f.face,"hits":[],"source_frame":f.action_id})
 	elif m.kind=="burger" and t==24:
 		food("burger",f.slot,f.x+f.face*24*FP,f.y-96*FP,clampi(f.x+f.face*80*FP,32*FP,608*FP),20)
 	elif m.kind=="summon" and t==28:
@@ -398,8 +422,8 @@ func hurtbox(f: Dictionary) -> Rect2i:
 	if f.mode=="roll" and f.age>=4 and f.age<=15: return Rect2i()
 	var crouch: bool = f.mode=="crouch" or (f.mode=="guard" and f.input.dir in [1,2,3]) or (f.mode=="attack" and f.move.contains("-2"))
 	var box: Array
-	if crouch: box = [-18,18,-88,-6] if f.char==0 else [-25,25,-92,-6]
-	else: box = [-15,15,-142,-6] if f.char==0 else [-23,23,-138,-6]
+	if crouch: box = [-25,25,-92,-6] if f.char==1 else [-18,18,-88,-6]
+	else: box = [-23,23,-138,-6] if f.char==1 else [-15,15,-142,-6]
 	return rect(f.x,f.y,1,box)
 
 func attackbox(f: Dictionary) -> Rect2i:
@@ -407,6 +431,11 @@ func attackbox(f: Dictionary) -> Rect2i:
 	var m: Dictionary = moves[f.move]
 	if f.age<m.s or f.age>=m.s+m.a: return Rect2i()
 	if m.kind=="normal": return rect(f.x,f.y,f.face,m.box)
+	if m.kind=="shoulder": return rect(f.x,f.y,f.face,[8,66,-120,-34])
+	if m.kind=="sonic": return rect(f.x,f.y,f.face,[4,84,-210,-48])
+	if m.kind=="trousers" and f.age>=30: return rect(f.x,f.y,f.face,[8,96,-112,-32])
+	if m.kind=="dance" and (f.age-m.s)%8<4:
+		return rect(f.x,f.y,f.face,[8,108 if f.age>=42 else 88,-126,-30])
 	if m.kind=="talk":
 		if f.age<=12: return rect(f.x,f.y,f.face,[16,80,-118,-54])
 		if f.age>=20: return rect(f.x,f.y,f.face,[16,100,-126,-38])
@@ -424,18 +453,22 @@ func collect_attacks(f: Dictionary, target: Dictionary, contacts: Array, grabs: 
 	var m: Dictionary = moves[f.move]
 	if f.age<m.s or f.age>=m.s+m.a: return
 	if m.kind in ["throw","grab","room"]:
-		var range_px: int = 88 if m.kind=="room" else 58 if m.kind=="grab" else 50+6*f.char
+		var range_px: int = 88 if m.kind=="room" else 58 if m.kind=="grab" else THROW_RANGE[f.char]
 		if (target.x-f.x)*f.face>=0 and absi(target.x-f.x)<=range_px*FP and throwable(target,m.kind=="room"):
 			grabs.append({"owner":f.slot,"target":target.slot,"move":f.move,"kind":m.kind})
 		return
-	var sub: int = 1 if m.kind=="talk" and f.age>=20 else 0
+	var sub: int = (f.age-m.s)/8 if m.kind=="dance" else 1 if m.kind=="talk" and f.age>=20 else 0
 	var box: Rect2i = attackbox(f)
 	if box.has_area() and box.intersects(hurtbox(target)) and sub not in f.hits and target.airhits<2:
 		f.hits.append(sub)
 		var damage: int = 75 if m.kind=="talk" and sub==1 else m.damage
 		var h: int = 24 if m.kind=="talk" and sub==1 else m.h
 		var b: int = 17 if m.kind=="talk" and sub==1 else m.b
-		contacts.append(make_hit(f,target,m,damage,h,b,sub,f.move+"/"+str(f.action_id),guardable(target,m.level,f.face)))
+		if m.kind=="dance": damage=(140 if f.enhanced else 120) if sub==3 else (60 if f.enhanced else 40)
+		if m.kind=="trousers": damage=70
+		var hit: Dictionary=make_hit(f,target,m,damage,h,b,sub,f.move+"/"+str(f.action_id),guardable(target,m.level,f.face))
+		if m.kind=="dance" and sub==3: hit.hard=true
+		contacts.append(hit)
 
 func throwable(f: Dictionary, room: bool = false) -> bool:
 	if not grounded(f) or f.invthrow>0 or f.mode in ["down","getup","jump_prepare","guard"]: return false
@@ -452,7 +485,7 @@ func collect_entity(e: Dictionary, contacts: Array) -> void:
 	if target.slot in e.hits or target.airhits>=2: return
 	var box: Rect2i
 	if e.kind=="projectile":
-		var size: int = 9-e.char
+		var size: int = PROJECTILE_RADIUS[e.char]
 		box = rect(e.x,e.y,1,[-size,size,-size,size])
 	elif e.kind=="summon": box = rect(e.x,e.y,1,[-56,56,-160,0])
 	else: box = rect(e.x,e.y,e.face,[32,608,-72,-8])
@@ -514,7 +547,7 @@ func apply_hit(hit: Dictionary) -> void:
 		if hit.hard:
 			b.mode = "down"
 			b.hitstun = 0
-		if hit.kind=="projectile":
+		if hit.kind=="projectile" and a.char in [0,1]:
 			b.reaction = "poop" if a.char==0 else "laugh"
 			b.reaction_time = 18 if a.char==0 else 22
 			if a.char==0: b.stain = 45
@@ -523,7 +556,7 @@ func apply_hit(hit: Dictionary) -> void:
 	b.move = ""
 	b.blocked_this = true
 	var push: int = (10 if heavy else 6) if block and normal else (18 if heavy else 10) if normal else 12 if block else 20
-	if hit.kind=="papers" or (hit.kind=="talk" and hit.sub==0): push = 4
+	if hit.kind=="papers" or (hit.kind=="talk" and hit.sub==0) or (hit.kind=="dance" and hit.sub<3): push = 4
 	b.knock = push*FP*hit.face
 	b.knock_time = 5
 	if hit.kind=="papers": b.knock_time = 1; b.knock *= 5
@@ -537,9 +570,9 @@ func apply_hit(hit: Dictionary) -> void:
 		add_energy(b,3 if block else 6)
 	var pause: int = (5 if heavy else 3) if block and normal else (8 if heavy else 5) if normal else 4 if block else 7
 	if hit.kind=="summon": pause = 6 if block else 10
-	if hit.kind=="papers": pause = 2 if block else 3
+	if hit.kind=="papers" or (hit.kind=="dance" and hit.sub<3): pause = 2 if block else 3
 	state.freeze = maxi(state.freeze,pause)
-	event("block" if block else "hit",hit.owner,{"target":hit.target,"x":hit.x,"y":hit.y,"damage":damage,"heavy":heavy or hit.kind=="summon","move":hit.move,"combo":b.combo,"combo_damage":b.combo_damage,"combo_start":b.combo==1 and b.combo_damage==damage})
+	event("block" if block else "hit",hit.owner,{"target":hit.target,"x":hit.x,"y":hit.y,"damage":damage,"heavy":heavy or hit.kind in ["summon","shoulder","sonic"] or (hit.kind=="dance" and hit.sub==3),"move":hit.move,"combo":b.combo,"combo_damage":b.combo_damage,"combo_start":b.combo==1 and b.combo_damage==damage})
 
 func finish_frame(f: Dictionary) -> void:
 	f.age += 1
@@ -622,7 +655,7 @@ func advance_cinema(buttons: Array) -> void:
 		var distance: int = 96 if c.kind=="room" else 88 if c.kind=="grab" else 80
 		var face: int = -c.face if c.back and c.kind=="throw" else c.face
 		b.x = a.x+face*distance*FP
-		var w: int = (18+6*b.char)*FP
+		var w: int = BODY_WIDTH[b.char]*FP
 		var clamped: int = clampi(b.x,(16*FP)+w,(624*FP)-w)
 		a.x += clamped-b.x
 		b.x = clamped

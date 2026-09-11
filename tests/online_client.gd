@@ -3,6 +3,8 @@ const Rollback = preload("res://scripts/rollback.gd")
 const Cpu = preload("res://scripts/cpu.gd")
 var cpu=Cpu.new()
 var full: bool=false
+var character: int=-1
+var fast: bool=false
 var results: int=0
 var result_sent: bool=false
 var hostname: String="127.0.0.1"
@@ -20,6 +22,10 @@ func begin() -> void:
 	creator="--creator" in OS.get_cmdline_user_args()
 	full="--full" in OS.get_cmdline_user_args()
 	var args=OS.get_cmdline_user_args()
+	fast="--fast" in args
+	if fast: Engine.physics_ticks_per_second=240
+	if "--character" in args: character=int(args[args.find("--character")+1])
+	if "--code-path" in args: code_path=args[args.find("--code-path")+1]
 	if "--host" in args: hostname=args[args.find("--host")+1]
 	net.failed.connect(func(reason):
 		if done: quit()
@@ -30,7 +36,9 @@ func begin() -> void:
 	net.room_changed.connect(func(info):
 		if creator:
 			var f=FileAccess.open(code_path,FileAccess.WRITE);f.store_string(info.code);f.close()
-		if not done and info.chars.size()==2 and not info.ready[info.slot]: net.set_ready(true))
+		if character>=0 and info.chars[info.slot]!=character:
+			net.set_character(character)
+		elif not done and info.chars.size()==2 and not info.ready[info.slot]: net.set_ready(true))
 	net.match_started.connect(func(info):
 		driver=Rollback.new();driver.start(info.chars,info.seed,info.match,info.slot)
 		cpu=Cpu.new();cpu.level=2;cpu.seed_value=info.seed+info.slot;result_sent=false
@@ -54,9 +62,10 @@ func _physics_process(_dt: float) -> bool:
 		var n: int=driver.cursor
 		var bits: int=(8 if creator else 4) if n%90<25 else 16 if n%90==25 else 0
 		driver.tick(bits)
-	net.send_inputs(driver.batch(),driver.remote_high)
+	if not fast or frames%4==0: net.send_inputs(driver.batch(),driver.remote_high)
 	frames+=1
-	if frames%3==0 and driver.remote_high<driver.cursor+2: net.request_gap(driver.remote_high+1,driver.cursor+2)
+	if fast and frames%2400==0: print("NET progress cursor=",driver.cursor," remote=",driver.remote_high," ack=",driver.peer_ack," phase=",driver.battle.state.phase," time=",driver.battle.state.time," wins=",driver.battle.state.wins)
+	if frames%(12 if fast else 3)==0 and driver.remote_high<driver.cursor+2: net.request_gap(driver.remote_high+1,driver.cursor+2)
 	for n in driver.checksums:
 		if n<=driver.confirmed and (n+1)%60==0: net.report_hash(n,driver.checksums[n])
 	if full and driver.battle.state.phase=="done" and driver.confirmed>=driver.cursor-1 and not result_sent:

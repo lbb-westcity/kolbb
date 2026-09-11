@@ -3,8 +3,11 @@ const Rollback = preload("res://scripts/rollback.gd")
 func _initialize() -> void:
 	call_deferred("run")
 func run() -> void:
+	for chars in [[0,1],[2,0],[1,2],[2,2]]: check_match(chars)
+	quit()
+func check_match(chars: Array) -> void:
 	var a=Rollback.new();var b=Rollback.new()
-	a.start([0,1],455,18,0);b.start([0,1],455,18,1)
+	a.start(chars,455,18,0);b.start(chars,455,18,1)
 	var packets: Array=[]
 	for tick in 2200:
 		var ka: int=8 if tick%60<30 else 16 if tick%60==30 else 0
@@ -23,4 +26,3 @@ func run() -> void:
 	assert(a.cursor==b.cursor)
 	assert(a.battle.checksum()==b.battle.checksum(),"peers must converge")
 	print("PASS rollback: 2200 frames, 2–6 tick delay, recurring loss; corrections ",a.rollback_count+b.rollback_count,"; peak replay µs ",maxi(a.max_replay_us,b.max_replay_us),"; CRC ",a.battle.checksum())
-	quit()

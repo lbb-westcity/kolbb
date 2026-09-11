@@ -67,7 +67,7 @@ func _ready() -> void:
 	Net.result_confirmed.connect(func(_data): verified_result=true)
 	var args=OS.get_cmdline_user_args()
 	if "--verify-assets" in args:
-		var valid: bool=audio.clips.size()==39 and arena.textures.size()==36 and arena.portrait.size()==2 and arena.framesets.size()==2 and arena.animated_props!=null
+		var valid: bool=audio.clips.size()==42 and arena.textures.size()==56 and arena.portrait.size()==Battle.NAMES.size() and arena.framesets.size()==Battle.NAMES.size() and arena.animated_props!=null and arena.littleblack_fx.size()==4
 		print("Asset check: ","PASS" if valid else "FAIL"," / audio ",audio.clips.size()," / atlases ",arena.textures.size())
 		get_tree().quit(0 if valid else 1)
 		return
@@ -150,11 +150,11 @@ func show_home() -> void:
 	text_label("JU GUAI",Vector2(509,313),14,Color("f29646"),125)
 	focus_first()
 func show_select() -> void:
-	screen="select";clear_ui();header("选择你的下班方式","两名角色 · 允许镜像 · 99 秒 · 三局两胜")
+	screen="select";clear_ui();header("选择你的下班方式","三名角色 · 允许镜像 · 99 秒 · 三局两胜")
 	text_label("你的角色",Vector2(34,86),16)
-	var p=OptionButton.new();p.position=Vector2(32,116);p.size=Vector2(270,34);p.add_item("RajerWei · 远程控场");p.add_item("JU GUAI · 近身压制");p.selected=selected;ui.add_child(p);p.item_selected.connect(func(i): selected=i)
+	var p=OptionButton.new();p.position=Vector2(32,116);p.size=Vector2(270,34);p.add_item("RajerWei · 远程控场");p.add_item("JU GUAI · 近身压制");p.add_item("little black · 节奏突进");p.selected=selected;ui.add_child(p);p.item_selected.connect(func(i): selected=i)
 	text_label("CPU 角色",Vector2(332,86),16)
-	var enemy=OptionButton.new();enemy.position=Vector2(332,116);enemy.size=Vector2(270,34);enemy.add_item("RajerWei");enemy.add_item("JU GUAI");enemy.selected=opponent;ui.add_child(enemy);enemy.item_selected.connect(func(i): opponent=i)
+	var enemy=OptionButton.new();enemy.position=Vector2(332,116);enemy.size=Vector2(270,34);enemy.add_item("RajerWei");enemy.add_item("JU GUAI");enemy.add_item("little black");enemy.selected=opponent;ui.add_child(enemy);enemy.item_selected.connect(func(i): opponent=i)
 	text_label("难度",Vector2(34,169),16)
 	var level=OptionButton.new();level.position=Vector2(106,165);level.size=Vector2(196,34)
 	for title in ["简单 · 慢半拍的同事","普通 · 正常营业","困难 · 下班阻击战"]: level.add_item(title)
@@ -177,13 +177,13 @@ func show_moves(origin: String, page: int = -1) -> void:
 	moves_page=page if page>=0 else selected
 	if page<0 and origin=="pause":
 		moves_page=battle.state.fighters[Net.slot if online else 0].char
-	var accent: Color=[Color("45cbd1"),Color("f29646"),Color("ffd166")][moves_page]
+	var accent: Color=[Color("45cbd1"),Color("f29646"),Color("a8b9e8"),Color("ffd166")][moves_page]
 	shade(Rect2(16,10,608,340),.99)
 	text_label("出招表",Vector2(30,14),24)
-	text_label("← → 切页  /  %02d · 03" % (moves_page+1),Vector2(421,25),12,Color("8b9a9f"),190)
+	text_label("← → 切页  /  %02d · 04" % (moves_page+1),Vector2(421,25),12,Color("8b9a9f"),190)
 	var tabs: Array=[]
-	for i in 3:
-		var tab=button(["RajerWei","JU GUAI","共通操作"][i],Vector2(30+i*196,51),func(): show_moves(origin,i),188)
+	for i in Battle.NAMES.size()+1:
+		var tab=button((Battle.NAMES+["共通操作"])[i],Vector2(30+i*147,51),func(): show_moves(origin,i),139)
 		tab.add_theme_font_size_override("font_size",14)
 		tab.alignment=HORIZONTAL_ALIGNMENT_CENTER
 		if i==moves_page:
@@ -192,28 +192,33 @@ func show_moves(origin: String, page: int = -1) -> void:
 			tab.add_theme_stylebox_override("normal",active)
 			tab.add_theme_color_override("font_color",accent)
 		tabs.append(tab)
-	if moves_page<2:
+	if moves_page<Battle.NAMES.size():
 		var portrait=TextureRect.new();portrait.texture=arena.portrait[moves_page]
 		portrait.position=Vector2(70,94);portrait.size=Vector2(72,72)
 		portrait.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(portrait)
-		text_label(["远程控场 / 食物博弈","近身压制 / 指令抓取"][moves_page],Vector2(30,174),12,accent,162)
-		text_label(["用飞行道具控制距离，\n召唤落地，抢回主动。","用积分逼近对手，\n面谈压制，近身抓取。"][moves_page],Vector2(30,197),11,Color("f0e7d5"),162)
+		text_label(["远程控场 / 食物博弈","近身压制 / 指令抓取","篮球牵制 / 节奏突进"][moves_page],Vector2(30,174),12,accent,162)
+		text_label(["用飞行道具控制距离，\n召唤落地，抢回主动。","用积分逼近对手，\n面谈压制，近身抓取。","投球牵制，肩撞逼近，\n音爆拦截空中对手。"][moves_page],Vector2(30,197),11,Color("f0e7d5"),162)
 		text_label("MAX 接触取消",Vector2(30,240),11,Color("ffd166"),162)
-		text_label(["大便投掷 ↔ 肯德基挚友","积分投掷 ↔ 绩效面谈"][moves_page],Vector2(30,258),11,Color("f0e7d5"),162)
-		var inputs: Array=["↓ →  + A/C","↓ ←  + A/C","→ ↓  + B/D" if moves_page==0 else "→ ↓ ←  + B/D","↓ → ↓ →  + A/C"]
-		var notes: Array=["飞行道具 · 命中糊脸","汉堡：自己 +200\n对手 −200","召唤击飞 · 三片披萨\n自己每片 +50","超必杀 · 前冲抓取"] if moves_page==0 else ["飞行道具 · 命中大笑","气泡 + 文件夹 · 两段打击","近身指令投 · 不可拆投","超必杀 · 五波文件，可防御"]
-		for i in 4:
-			var move: Dictionary=battle.moves["P%d-%s" % [moves_page+1,["S1","S2","S3","U1"][i]]]
-			var y: int=94+i*48
-			var card=ColorRect.new();card.position=Vector2(202,y);card.size=Vector2(408,44)
+		text_label(["大便投掷 ↔ 肯德基挚友","积分投掷 ↔ 绩效面谈","篮球 ↔ 铁山靠"][moves_page],Vector2(30,258),11,Color("f0e7d5"),162)
+		var inputs: Array=["↓ →  + A/C","↓ ←  + A/C","→ ↓ ←  + B/D" if moves_page==1 else "→ ↓  + B/D","↓ → ↓ →  + A/C"]
+		var notes: Array=["飞行道具 · 命中糊脸","汉堡：自己 +200\n对手 −200","召唤击飞 · 三片披萨\n自己每片 +50","超必杀 · 前冲抓取"] if moves_page==0 else ["飞行道具 · 命中大笑","气泡 + 文件夹 · 两段打击","近身指令投 · 不可拆投","超必杀 · 五波文件，可防御"] if moves_page==1 else ["直线投球 · 可抵消","向前肩撞 · 可防御","向上音波 · 对空击飞","舞步四连击 · 末段倒地"]
+		var ids: Array=["S1","S2","S3","U1"]
+		if moves_page==2:
+			ids.insert(3,"S4");inputs.insert(3,"↓ ←  + B/D");notes.insert(3,"甩长裤 → 短裤踢击")
+		var spacing: int=38 if moves_page==2 else 48
+		for i in ids.size():
+			var ultimate: bool=ids[i]=="U1"
+			var move: Dictionary=battle.moves["P%d-%s" % [moves_page+1,ids[i]]]
+			var y: int=94+i*spacing
+			var card=ColorRect.new();card.position=Vector2(202,y);card.size=Vector2(408,spacing-4)
 			card.color=Color("10202b");card.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(card)
-			var stripe=ColorRect.new();stripe.position=Vector2(202,y);stripe.size=Vector2(2,44)
-			stripe.color=Color("ffd166") if i==3 else accent;stripe.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(stripe)
-			text_label(move.name,Vector2(214,y+1),15,Color("ffd166") if i==3 else Color("f0e7d5"),190)
+			var stripe=ColorRect.new();stripe.position=Vector2(202,y);stripe.size=Vector2(2,spacing-4)
+			stripe.color=Color("ffd166") if ultimate else accent;stripe.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(stripe)
+			text_label(move.name,Vector2(214,y+1),15,Color("ffd166") if ultimate else Color("f0e7d5"),190)
 			var cost=text_label("%d 能量" % move.cost if move.cost>0 else "无消耗",Vector2(535,y+3),11,Color("ffd166") if move.cost>0 else Color("8b9a9f"),64)
 			cost.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
-			text_label(inputs[i],Vector2(214,y+23),12,accent,196)
-			var note=text_label(notes[i],Vector2(412,y+5),10,Color("aab5b7"),120)
+			text_label(inputs[i],Vector2(214,y+(19 if moves_page==2 else 23)),12,accent,196)
+			var note=text_label(notes[i],Vector2(412,y+3),10,Color("aab5b7"),120)
 			note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 			note.size=Vector2(120,34)
 	else:
@@ -346,7 +351,7 @@ func show_room() -> void:
 			text_label(Battle.NAMES[r.chars[i]],Vector2(x,129),22,Color("45cbd1") if i==0 else Color("f29646"))
 			text_label("已准备" if r.ready[i] else "未准备",Vector2(x,172),16)
 		else: text_label("等待好友加入…",Vector2(x,135),16,Color("8b9a9f"))
-	button("切换角色",Vector2(32,225),func(): Net.set_character(1-r.chars[Net.slot]),265)
+	button("切换角色",Vector2(32,225),func(): Net.set_character((r.chars[Net.slot]+1)%Battle.NAMES.size()),265)
 	button("取消准备" if r.ready[Net.slot] else "准备",Vector2(332,225),func(): Net.set_ready(not r.ready[Net.slot]),265)
 	back_button(func(): Net.disconnect_room();show_network());focus_first()
 func _online_start(info: Dictionary) -> void:
@@ -429,7 +434,7 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled();return
 		if screen=="moves" and (event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right")):
 			var direction: int=1 if event.is_action_pressed("ui_right") else -1
-			audio.sound("move");show_moves(return_screen,posmod(moves_page+direction,3))
+			audio.sound("move");show_moves(return_screen,posmod(moves_page+direction,Battle.NAMES.size()+1))
 			get_viewport().set_input_as_handled();return
 		if event.keycode==KEY_F3: arena.debug=not arena.debug
 		if event.keycode==KEY_ESCAPE:

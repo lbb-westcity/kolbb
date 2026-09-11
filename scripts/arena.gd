@@ -32,6 +32,7 @@ var online: bool = false
 var world_offset: Vector2 = Vector2.ZERO
 var confirmed: int = -1
 var portrait: Array = []
+var littleblack_fx: Dictionary = {}
 
 func _ready() -> void:
 	texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
@@ -39,16 +40,20 @@ func _ready() -> void:
 	bg=load("res://assets/stage/office.png")
 	if ResourceLoader.exists("res://assets/props/props.png"): props=load("res://assets/props/props.png")
 	if ResourceLoader.exists("res://assets/props/animated.png"): animated_props=load("res://assets/props/animated.png")
-	for who in ["rajer","juguai"]:
+	for who in Battle.ART:
 		if ResourceLoader.exists("res://assets/fighters/%s_frames.tres" % who): framesets[who]=load("res://assets/fighters/%s_frames.tres" % who)
-		for group in ["core","normals","specials","air","locomotion","reaction","performance","normals2","specials2"]:
+		for group in ["core","normals","specials","air","locomotion","reaction","performance","normals2","specials2","wardrobe"]:
 			var path: String="res://assets/fighters/%s_%s.png" % [who,group]
 			if ResourceLoader.exists(path):
 				textures[who+"_"+group]=load(path)
 				var alternate: String=path.replace(".png","_alt.png")
 				if ResourceLoader.exists(alternate): textures[who+"_"+group+"_alt"]=load(alternate)
-	for who in ["rajer","juguai"]:
+	for who in Battle.ART:
 		portrait.append(load("res://assets/ui/"+who+"_portrait.png") if ResourceLoader.exists("res://assets/ui/"+who+"_portrait.png") else null)
+
+	for name in ["ball","sonic","shoulder","trousers"]:
+		var path: String="res://assets/props/littleblack_%s.png" % name
+		if ResourceLoader.exists(path): littleblack_fx[name]=load(path)
 
 func reset_effects() -> void:
 	seen.clear();fx.clear();trauma=0;delayed_hp=[1000.0,1000.0];damage_wait=[0.0,0.0];combo_hits=[0,0];message_age=0
@@ -63,11 +68,12 @@ func present(events: Array, audio) -> void:
 			"hit": sound="heavy" if e.heavy else "light"
 			"action":
 				var id: String=e.move
-				if id.ends_with("S1"): sound="poop" if id.begins_with("P1") else "coin"
+				if id.begins_with("P3-"): sound={"P3-S1":"basketball","P3-S2":"shoulder","P3-S3":"sonic","P3-S4":"kick"}.get(id,"super")
+				elif id.ends_with("S1"): sound="poop" if id.begins_with("P1") else "coin"
 				elif id.ends_with("S2"): sound="burger" if id.begins_with("P1") else "talk"
 				elif id.ends_with("S3"): sound="summon" if id.begins_with("P1") else "capture"
 				else: sound="kick" if id.ends_with("B") or id.ends_with("D") else "punch"
-			"projectile": sound="poop" if battle.state.fighters[e.slot].char==0 else "coin"
+			"projectile": sound=["poop","coin","basketball"][battle.state.fighters[e.slot].char]
 		if e.kind=="victory": audio.play_music("victory")
 		else: audio.sound(sound,1.0+(int(e.get("slot",0))*0.025))
 		if e.kind in ["hit","block","pickup","clash","land","max","summon","slam","whip","break","stock"]:
@@ -133,7 +139,7 @@ func _draw() -> void:
 	for f in battle.state.fighters:
 		var height: float=(Battle.GROUND-f.y)/256.0
 		draw_set_transform(offset+Vector2(f.x/256.0,293),0,Vector2(1,0.18))
-		draw_circle(Vector2.ZERO,maxf(12,22+f.char*3-height*.06),Color(0,0,0,.28))
+		draw_circle(Vector2.ZERO,maxf(12,[22,25,22][f.char]-height*.06),Color(0,0,0,.28))
 	draw_set_transform(offset)
 	for f in battle.state.fighters:
 		var action_age: int=maxi(0,f.age-1)
@@ -206,12 +212,21 @@ func animation(f: Dictionary) -> Array:
 		else:
 			group="specials"
 			var row: int=0
-			if f.char==0:
+			if f.char==2:
+				row={"projectile":0,"shoulder":1,"throw":2,"sonic":3}.get(m.kind,0)
+			elif f.char==0:
 				row=1 if m.kind=="summon" else 2 if m.kind in ["room","throw"] else 0
 			else:
 				row=1 if m.kind=="talk" else 2 if m.kind in ["grab","throw"] else 3 if m.kind=="papers" else 0
 			frame=row*6+phase_frame
-			if f.char==0:
+			if f.char==2:
+				if m.kind=="trousers":
+					group="wardrobe"
+					frame=mini(4,f.age*5/14) if f.age<14 else 5 if f.age<18 else 6+mini(1,(f.age-18)/6) if f.age<30 else 9 if f.age<35 else 10+mini(1,(f.age-35)/3) if f.age<41 else 12+mini(5,(f.age-41)*6/20)
+				elif m.kind=="dance":
+					group="specials2"
+					frame=mini(1,f.age/9) if f.age<18 else 2+mini(3,(f.age-18)/8) if f.age<46 else 6+mini(1,(f.age-46)/15)
+			elif f.char==0:
 				if m.kind=="burger": group="specials2";frame=phase_frame
 				elif m.kind=="room": group="specials2";frame=6+mini(1,f.age/8)
 				elif m.kind=="throw": group="specials2";frame=14+mini(1,f.age/2)
@@ -233,7 +248,7 @@ func draw_fighter(f: Dictionary,override_pos: Vector2=Vector2.INF,override_frame
 	var anim: Array=animation(f)
 	if override_frame>=0: anim=["core",override_frame]
 	if not override_anim.is_empty(): anim=override_anim
-	var who: String="rajer" if f.char==0 else "juguai"
+	var who: String=Battle.ART[f.char]
 	var key: String=who+"_"+anim[0]
 	if not textures.has(key): key=who+"_core";anim=["core",19]
 	var tex: Texture2D=textures[key]
@@ -270,6 +285,14 @@ func draw_fighter(f: Dictionary,override_pos: Vector2=Vector2.INF,override_frame
 	if not shadow:
 		marker(p+Vector2(0,8),f.slot,CYAN if f.slot==0 else ORANGE)
 		if f.stain>0: box(Rect2(p+Vector2(f.face*4-5,-132),Vector2(10,6)),Color("79442b"))
+	if f.char==2 and f.mode=="attack":
+		var age: int=maxi(0,f.age-1)
+		if f.move=="P3-S3" and age>=10 and age<16:
+			draw_littleblack_fx("sonic",age-10,p+Vector2(f.face*44,-129),Vector2(84,162),f.face)
+		elif f.move=="P3-S2" and age>=12 and age<20:
+			draw_littleblack_fx("shoulder",mini(5,age-12),p+Vector2(f.face*45,-85),Vector2(52,64),f.face)
+		elif f.move=="P3-U1" and age>=42 and age<48:
+			draw_littleblack_fx("shoulder",age-42,p+Vector2(f.face*64,-85),Vector2(88,76),f.face)
 	if f.mode=="attack" and f.move=="P2-S2" and f.age>=9 and f.age<=20:
 		var x: float=p.x+f.face*60
 		box(Rect2(x-28,p.y-143,56,24),IVORY,INK)
@@ -282,9 +305,19 @@ func draw_prop(index: int,p: Vector2,size: Vector2,tint: Color=Color.WHITE) -> v
 func draw_animated_prop(index: int,p: Vector2,size: Vector2) -> void:
 	if animated_props: draw_texture_rect_region(animated_props,Rect2(p.x-size.x/2,p.y-size.y*244/256,size.x,size.y),Rect2((index%6)*256,(index/6)*256,256,256))
 
+func draw_littleblack_fx(id: String, frame: int, p: Vector2, size: Vector2, face: int=1) -> void:
+	if not littleblack_fx.has(id): return
+	var tex: Texture2D=littleblack_fx[id]
+	var cell: Vector2=Vector2(tex.get_width()/3,tex.get_height()/2)
+	draw_set_transform(p+world_offset,0,Vector2(face,1))
+	draw_texture_rect_region(tex,Rect2(-size/2,size),Rect2(Vector2(frame%3,frame/3)*cell,cell))
+	draw_set_transform(world_offset)
+
 func draw_entity(e: Dictionary) -> void:
 	var p: Vector2=Vector2(e.x/256.0,e.y/256.0)
-	if e.kind=="projectile":
+	if e.kind=="projectile" and e.char==2:
+		draw_littleblack_fx("trousers" if e.move=="P3-S4" else "ball",(e.age/3)%6,p,Vector2(34,34) if e.move=="P3-S4" else Vector2(24,24),e.face)
+	elif e.kind=="projectile":
 		var color: Color=Color("9d7040") if e.char==0 else GOLD
 		for i in 3: draw_line(p-Vector2(e.face*(8+i*5),0),p-Vector2(e.face*(13+i*5),0),Color(color,0.5-i*.1),2)
 		if animated_props: draw_animated_prop(18+(e.age/4)%4 if e.char==0 else 22+(e.age/4)%2,p+Vector2(0,10),Vector2(22,22))

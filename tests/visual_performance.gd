@@ -9,7 +9,7 @@ func _initialize() -> void:
 	call_deferred("begin")
 func begin() -> void:
 	main=load("res://main.tscn").instantiate();main.tests_demo=true;root.add_child(main)
-	main.start_local()
+	main.selected=2;main.opponent=2;main.start_local()
 	began_us=Time.get_ticks_usec();previous_us=began_us
 func _process(dt: float) -> bool:
 	var now: int=Time.get_ticks_usec()

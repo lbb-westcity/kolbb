@@ -16,7 +16,7 @@ func run() -> void:
 		for game in (10 if profile<6 else 2):
 			rng.seed=500+profile*30+game
 			var a=Rollback.new();var b=Rollback.new()
-			var chars: Array=[game%2,(game/2)%2]
+			var chars: Array=[game%3,(game/3)%3]
 			a.start(chars,game+21,55,0);b.start(chars,game+21,55,1)
 			var cpus: Array=[Cpu.new(),Cpu.new()]
 			cpus[0].level=2;cpus[1].level=2;cpus[0].seed_value=game+523;cpus[1].seed_value=game+215

@@ -37,4 +37,9 @@ for i in range(32):
     n=impact(72 if i%4==0 else 290,.11)*(.6 if i%4==0 else .14)
     j=int(i*.25*sr);y[j:j+len(n)]+=n
 save('urgency',y,.12)
+# Little black: ball bounce, body check and upward sonic burst.
+save('basketball',impact(125,.28)+tone(510,.28,23)*.18)
+save('shoulder',impact(55,.32)+noise(.32,22)*.45)
+t=np.arange(int(sr*.4))/sr
+save('sonic',np.sin(2*np.pi*(220*t+1800*t*t))*np.exp(-t*12)+noise(.4,20)*.3)
 print('Generated',len(list(out.glob('*.wav'))),'original sound files')

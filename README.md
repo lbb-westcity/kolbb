@@ -16,7 +16,7 @@ Windows 用户解压 `KOLBB-Windows-x64.zip`，运行 `KOLBB.exe`；资源已内
 /Applications/Godot.app/Contents/MacOS/Godot --path .
 ```
 
-菜单选择单机或互联网对战。单机可选两名角色、镜像与三档 CPU；99 秒、先赢两局。互联网默认服务器 `49.235.23.27`，一人建房，另一人输入六位房间码，双方准备开始。
+菜单选择单机或互联网对战。单机可选三名角色、镜像与三档 CPU；99 秒、先赢两局。互联网默认服务器 `49.235.23.27`，一人建房，另一人输入六位房间码，双方准备开始。
 
 ## 操作
 
@@ -77,3 +77,5 @@ sudo systemctl restart kolbb
 - `assets/`：运行时图集、字体、音乐、音效和招式数据。
 
 字体为 Noto Sans CJK SC，许可见 `assets/ui/OFL.txt`。角色身份、公司标识与素材源自本项目提供的参考。音乐、图像与音效来源分别记录，不将合成音效标为 Higgsfield 生成。
+
+第三角色 **little black** 已加入：篮球、铁山靠、音爆、露出鸡脚、鸡你太美。左手持尤尼克斯羽毛球拍，支持镜像、三档 CPU 与联机；详见[角色指南](docs/wiki/little-black.md)。版本0.2.0需客户端与服务端一起更新。

@@ -1,0 +1,159 @@
+{
+  "tool": "built-in image_gen",
+  "reference": "raw-held/idle.png",
+  "identity_photos": [
+    "raw_assets/littleblack/littleblack1.jpg",
+    "raw_assets/littleblack/littleblack2.jpg"
+  ],
+  "common": "Production 2D game sprite sheet of the exact reference character. ONE ACTION ONLY, described below. EXACTLY 3 columns by 2 rows, six equal cells read left to right. SOLID PURE MAGENTA #FF00FF BACKGROUND EVERYWHERE OUTSIDE SUBJECT, NO BLACK OR GRADIENT BACKGROUND, no glow, grid, text, floor, shadows or watermark. Full subject centered, generous 15 percent margin on all sides, consistent anatomical scale and head size matching idle, stable feet baseline where grounded. Side view facing RIGHT. Crisp late-1990s arcade pixel art with dark outline and three-tone shading. Preserve slim adult face, center-parted black hair, round glasses, black shirt, gray suspenders and trousers, fingerless gloves and black-white shoes. In EVERY body pose, LEFT HAND visibly grips the white handle of ONE turquoise blue-green YONEX BADMINTON RACKET beside his torso, slim shaft and oval stringed head with small white Yonex emblem. Racket follows left hand, never strapped or placed on back. Right hand is free for gestures or basketball. Racket remains compact and fully inside cell, preserve body size; no detached FX in body sheets. ",
+  "actions": [
+    [
+      "walk",
+      "Forward walking loop, alternating supporting feet and passing strides, torso upright and fists raised."
+    ],
+    [
+      "backwalk",
+      "Defensive backward walking loop, still facing right, alternate feet and lean cautiously back."
+    ],
+    [
+      "run",
+      "Running loop with six distinct contact, passing and flight strides."
+    ],
+    [
+      "backstep",
+      "Backward evasive hop: guard, lean, push off, short hop, land, settle."
+    ],
+    [
+      "crouch",
+      "Crouching transition: lower progressively from standing to deep guarded squat."
+    ],
+    [
+      "jump",
+      "Jump sequence: crouched anticipation, takeoff, rising knees, apex, falling, crouched landing."
+    ],
+    [
+      "guard",
+      "Standing block: forearms shield head and chest, compress under impact then recover."
+    ],
+    [
+      "crouchguard",
+      "Crouching block: deep squat, forearms shield head, compress under impact then recover."
+    ],
+    [
+      "hurt",
+      "Hurt reaction: flinch, recoil, arch back, stagger, regain balance, recover; glasses remain on, no blood."
+    ],
+    [
+      "knockdown",
+      "Fall and get up: stagger, fall backward, lie on back, turn onto side, kneel, stand; all limbs contained."
+    ],
+    [
+      "roll",
+      "Forward somersault: crouch, tuck, invert, roll over back, plant foot, stand."
+    ],
+    [
+      "max",
+      "Power-up body gesture: fists clench, bend knees, open arms, shoulders rise, fists lift, settle. BODY ONLY no aura."
+    ],
+    [
+      "eat",
+      "Eating gesture: hand to mouth, swallow, lower hand. Empty hand no detached food."
+    ],
+    [
+      "poop",
+      "Disgusted face-wiping hurt reaction, recoiling and wiping face with gloved hand, keep glasses, no detached marks."
+    ],
+    [
+      "laugh",
+      "Uncontrollable laughing hurt reaction, shoulders shake and head tilts back, mouth open and hands at belly."
+    ],
+    [
+      "intro",
+      "Entrance basketball dribbling, bounce an orange basketball close beside right leg; ball fully contained and body size unchanged."
+    ],
+    [
+      "victory",
+      "Celebratory dance loop: shuffle feet, rhythmically rock hips and shoulders, facing right."
+    ],
+    [
+      "punch",
+      "Light standing punch: guard, windup, extend, full contact, retract, guard. BODY ONLY no FX."
+    ],
+    [
+      "kick",
+      "Standing forward kick: guard, knee lift, extend, full contact kick, retract, recover. BODY ONLY all limbs contained."
+    ],
+    [
+      "crouchpunch",
+      "Crouching punch: low guard, windup, extend low fist, contact, retract, guard. Preserve anatomical scale."
+    ],
+    [
+      "crouchkick",
+      "Low sweeping kick: crouch, coil, extend leg low right, full sweep contact, retract, recover. All limbs contained."
+    ],
+    [
+      "heavypunch",
+      "Heavy straight punch: guard, twist windup, accelerate fist, full contact, follow-through, recover. BODY ONLY."
+    ],
+    [
+      "heavykick",
+      "Heavy side kick: guard, coil knee, turn hip, full side kick right, retract, recover. BODY ONLY all limbs contained."
+    ],
+    [
+      "airpunch",
+      "Airborne punch: tuck knees, windup, punch forward, contact, retract, landing preparation. No floor or effects."
+    ],
+    [
+      "airkick",
+      "Airborne kick: tuck knees, lift knee, extend right leg, full contact, retract, landing preparation."
+    ],
+    [
+      "throw",
+      "One-handed ordinary throw attacker: free right arm reaches, grabs imaginary opponent, pulls, twists, heaves forward, recovers. Left hand holds racket. Only protagonist no second body."
+    ],
+    [
+      "basketball",
+      "Right-hand basketball throw: orange ball at right hip, draw back, push ball rightward using RIGHT hand only, release with empty right hand, follow through, recover. Left hand keeps gripping racket. No detached projectile."
+    ],
+    [
+      "shoulder",
+      "Tieshankao shoulder-check: guard, lower stance, coil torso, strong sideways shoulder thrust RIGHT, follow-through, recover. Head visible, body only."
+    ],
+    [
+      "sonic",
+      "Sonic anti-air cast: guard, inhale leaning back, raise free right hand, shout upward-right, exhale, recover. Left hand grips racket throughout. Body only no waves or text."
+    ],
+    [
+      "dance",
+      "Continuous martial dance super: rhythmic arm sweep, elbow strike, cross-step strike, hip-and-shoulder coil, final powerful shoulder check RIGHT, recover. BODY ONLY."
+    ],
+    [
+      "ball_fx",
+      "PROP ONLY no character or racket. Orange basketball rotating in place, same diameter and center in all six frames, curved dark seams, no trails."
+    ],
+    [
+      "sonic_fx",
+      "FX ONLY no character or racket. Six-frame cyan-white sonic crescent expands upward-right from lower left then fades; stepped pixel curves all contained."
+    ],
+    [
+      "shoulder_fx",
+      "FX ONLY no character or racket. Six-frame white and orange impact burst, short sharp sparks expanding horizontally then dissipating, all contained."
+    ],
+    [
+      "undress",
+      "Six-frame comic quick-change: gray breakaway long trousers are pulled away with right hand, revealing fully opaque black mid-thigh sports shorts underneath, then right hand throws empty gray trousers. Left hand grips Yonex racket throughout. Always clothed, no underwear or nudity."
+    ],
+    [
+      "shortskick",
+      "Six-frame standing follow-up kick while wearing opaque black mid-thigh athletic shorts, black tee, gray suspenders, bare lower legs and sneakers; left hand grips Yonex racket throughout."
+    ],
+    [
+      "dress",
+      "Six-frame recovery: right hand pulls gray long trousers back up over fully opaque black mid-thigh shorts, left hand grips Yonex racket throughout. Always clothed."
+    ],
+    [
+      "trousers_fx",
+      "Prop only: six rotation frames of an empty pair of gray long trousers flying through air. No person, body parts or racket."
+    ]
+  ]
+}

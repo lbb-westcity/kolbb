@@ -79,12 +79,16 @@ func sample(battle, slot: int = 1) -> int:
 		sequence([2,4],C.A,face)
 	elif me.char==0 and me.energy>=100 and distance>90 and distance<230 and roll<55:
 		sequence([6,2],C.B,face)
+	elif me.char==2 and foe.y<292*256 and distance<100 and roll<75:
+		sequence([6,2],C.B,face)
+	elif me.char==2 and distance>=58 and distance<145 and roll<55:
+		sequence([2,4],C.B if roll<20 else C.A,face)
 	elif distance>150 and roll<60:
 		sequence([2,6],C.A,face)
 	elif distance<58 and me.char==1 and roll<25:
 		sequence([6,2,4],C.D,face)
 	elif distance<95:
-		if me.char==1 and roll<40: sequence([2,4],C.A,face)
+		if me.char in [1,2] and roll<40: sequence([2,4],C.A,face)
 		else:
 			sequence([2 if roll<30 else 5], [C.A,C.B,C.C,C.D][random_int(4)],face)
 	elif distance<190 and roll<20:

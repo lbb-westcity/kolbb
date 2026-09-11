@@ -4,7 +4,7 @@ signal match_started(info: Dictionary)
 signal input_received(pairs: Array, ack: int)
 signal failed(reason: String)
 signal result_confirmed(info: Dictionary)
-const VERSION = "kolbb-0.1-rules-1-art-2"
+const VERSION = "kolbb-0.2-rules-2-art-3"
 const PORT = 7000
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 var server_mode: bool = false
@@ -34,6 +34,8 @@ var peer_rtt: Dictionary = {}
 var sent_history: Dictionary = {}
 var reported: Dictionary = {}
 var match_active: bool = false
+var pending_result: Dictionary = {}
+var result_retry: float = 0
 
 func _ready() -> void:
 	multiplayer.connected_to_server.connect(_connected)
@@ -83,6 +85,7 @@ func disconnect_room() -> void:
 	multiplayer.multiplayer_peer=OfflineMultiplayerPeer.new()
 	connected=false;connecting=false;match_active=false;room={};room_code="";match_id=0
 	sent_history.clear();reported.clear()
+	pending_result.clear();result_retry=0
 
 func abort(reason: String) -> void:
 	if server_mode: return
@@ -106,6 +109,11 @@ func _process(dt: float) -> void:
 		elapsed+=dt
 		if elapsed>=8: abort("无法连接服务器")
 	if connected:
+		if not pending_result.is_empty():
+			result_retry-=dt
+			if result_retry<=0:
+				control.rpc_id(1,"result",pending_result)
+				result_retry=.25
 		ping_elapsed+=dt
 		if ping_elapsed>=1:
 			ping_elapsed=0
@@ -132,7 +140,9 @@ func report_hash(frame: int, crc: int) -> void:
 		control.rpc_id(1,"hash",{"match":match_id,"frame":frame,"crc":crc})
 func report_result(frame: int, crc: int, wins: Array, winner: int) -> void:
 	if connected:
-		control.rpc_id(1,"result",{"match":match_id,"frame":frame,"crc":crc,"wins":wins,"winner":winner})
+		# The reliable result can arrive before the last unreliable input ACK.
+		pending_result={"match":match_id,"frame":frame,"crc":crc,"wins":wins.duplicate(),"winner":winner}
+		result_retry=0
 
 func allowed(peer: int) -> bool:
 	var now: int=Time.get_ticks_msec()/1000
@@ -186,7 +196,7 @@ func control(action: String, payload: Dictionary) -> void:
 	r.created=Time.get_ticks_msec()
 	if action=="character" and r.phase=="room":
 		var ch: int=int(payload.get("character",-1))
-		if ch not in [0,1]: return
+		if ch<0 or ch>=preload("res://scripts/battle.gd").NAMES.size(): return
 		r.chars[index]=ch
 		for i in r.ready.size(): r.ready[i]=false
 		broadcast_room(r)
@@ -271,6 +281,7 @@ func message(action: String, data: Dictionary) -> void:
 		"load":
 			match_id=data.match;slot=data.slot;room.merge(data,true)
 			sent_history.clear();reported.clear()
+			pending_result.clear();result_retry=0
 			control.rpc_id(1,"loaded",{"match":match_id})
 		"go":
 			active_elapsed=0;match_active=true
@@ -280,6 +291,7 @@ func message(action: String, data: Dictionary) -> void:
 			ping_ms=local_rtt+int(data.get("other",0))
 		"result":
 			match_active=false
+			pending_result.clear();result_retry=0
 			result_confirmed.emit(data)
 
 @rpc("any_peer","call_remote","unreliable",1)

@@ -335,3 +335,13 @@ PNG 为 sRGB、8位RGBA、straight alpha；空白像素 alpha=0，实体边缘�
 7. **性能检查：**两台Mac运行八招峰值、镜像双召唤与回滚；按 GDD V02 记录真实帧时，不以概念图数量估计性能。
 
 修改规范时先更新 GDD 的行为与数值，再同步本文动作时序、图板注释和资源清单；旧图如果只能表达构图，应保留明确注释，不能悄悄成为第二套玩法规则。
+
+## 9. little black（2026-09-11）
+
+参考 `raw_assets/littleblack/littleblack1.jpg`、`littleblack2.jpg`，保留圆框眼镜、脸型和中分黑发；黑上衣、灰色背带长裤、黑白运动鞋。尤尼克斯羽毛球拍必须握在左手，右手运球投球，不背在身后。像素动作以 `design/littleblack/raw-held/idle.png` 为统一基准。
+
+逐动作独立生成六帧3×2网格，清除品红背景、检查安全边界后装配为既有384×224、脚锚192,208图集；镜像衣服为钢蓝灰。篮球、肩撞火花、音爆与甩出的长裤均为独立层，伤害由模拟帧决定。
+
+新增“露出鸡脚”：甩出外层长裤后始终穿着不透明黑色中长运动短裤，再踢腿，收招穿回长裤。出招、短裤踢击和穿回长裤分别有独立动作稿，左手全程持拍。
+
+原始图稿由内置ImageGen生成，提示词见 `design/littleblack/prompts.json`，逐动作QC见 `design/littleblack/processed/`，图集映射见 `design/littleblack/layout.json`。`tools/prepare_littleblack.py`只负责切帧、缩放、调色和打包。新增三条音效为本地原创合成，复用已有音频生成工具。
