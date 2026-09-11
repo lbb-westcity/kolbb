@@ -726,7 +726,9 @@ func canonical(value: Variant, bytes: PackedByteArray) -> PackedByteArray:
 		TYPE_DICTIONARY:
 			bytes.append(1)
 			var keys: Array = value.keys()
-			keys.sort()
+			# Godot 4.6 dot assignments create StringName keys. Compare their
+			# text, not interned-name ordering, so equal states hash identically.
+			keys.sort_custom(func(a,b): return str(a)<str(b))
 			for key in keys:
 				bytes = canonical(key,bytes)
 				bytes = canonical(value[key],bytes)
@@ -735,9 +737,9 @@ func canonical(value: Variant, bytes: PackedByteArray) -> PackedByteArray:
 			bytes.append(2)
 			for item in value: bytes=canonical(item,bytes)
 			bytes.append(0)
-		TYPE_STRING:
+		TYPE_STRING, TYPE_STRING_NAME:
 			bytes.append(3)
-			bytes.append_array(value.to_utf8_buffer())
+			bytes.append_array(str(value).to_utf8_buffer())
 			bytes.append(0)
 		_:
 			bytes.append(4)

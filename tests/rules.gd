@@ -21,6 +21,10 @@ func action(b, slot: int, id: String, age: int = 0) -> void:
 func _initialize() -> void:
 	call_deferred("run")
 func run() -> void:
+	var serializer=Battle.new()
+	var named: Dictionary={&"mode":&"idle",&"hp":1000,&"id":2}
+	var textual: Dictionary={"id":2,"hp":1000,"mode":"idle"}
+	ok(serializer.canonical(named,PackedByteArray())==serializer.canonical(textual,PackedByteArray()),"StringName keys and values hash as text regardless of insertion order")
 	ok(C.direction(C.LEFT|C.RIGHT,1)==5,"SOCD horizontal")
 	ok(C.direction(C.UP|C.DOWN,-1)==5,"SOCD vertical")
 	ok(C.direction(C.RIGHT|C.DOWN,-1)==1,"relative facing")
