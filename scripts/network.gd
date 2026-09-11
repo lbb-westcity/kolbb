@@ -4,7 +4,7 @@ signal match_started(info: Dictionary)
 signal input_received(pairs: Array, ack: int)
 signal failed(reason: String)
 signal result_confirmed(info: Dictionary)
-const VERSION = "kolbb-0.2-rules-2-art-3"
+const VERSION = "kolbb-0.1.2-rules-2-art-3"
 const PORT = 7000
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 var server_mode: bool = false

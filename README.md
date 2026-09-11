@@ -78,4 +78,4 @@ sudo systemctl restart kolbb
 
 字体为 Noto Sans CJK SC，许可见 `assets/ui/OFL.txt`。角色身份、公司标识与素材源自本项目提供的参考。音乐、图像与音效来源分别记录，不将合成音效标为 Higgsfield 生成。
 
-第三角色 **little black** 已加入：篮球、铁山靠、音爆、露出鸡脚、鸡你太美。左手持尤尼克斯羽毛球拍，支持镜像、三档 CPU 与联机；详见[角色指南](docs/wiki/little-black.md)。版本0.2.0需客户端与服务端一起更新。
+第三角色 **little black** 已加入：篮球、铁山靠、音爆、露出鸡脚、鸡你太美。左手持尤尼克斯羽毛球拍，支持镜像、三档 CPU 与联机；详见[角色指南](docs/wiki/little-black.md)。版本0.1.2需客户端与服务端一起更新。
