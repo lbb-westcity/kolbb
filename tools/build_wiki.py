@@ -60,7 +60,7 @@ def build():
 <a class="skip" href="#content">跳到正文</a>
 <header><a class="brand" href="index.html">KOLBB <span>下班百科</span></a><span class="edition">AFTER HOURS / WIKI</span></header>
 <div class="layout"><aside><p class="eyebrow">办公室生存手册</p><nav aria-label="百科栏目">{nav}</nav><p class="sidebar-note">3 位角色 · 13 个技能<br>今天的班，就上到这里。</p></aside>
-<main id="content"><div class="article-meta">KOLBB / 玩家百科</div><article>{content}</article><footer>依据游戏项目实现整理 · 2026.09.10 · <a href="index.html">返回百科首页</a></footer></main>
+<main id="content"><div class="article-meta">KOLBB / 玩家百科</div><article>{content}</article><footer>依据游戏 0.1.2 实现整理 · 2026.09.11 · <a href="index.html">返回百科首页</a></footer></main>
 <aside class="contents"><p class="eyebrow">本页目录</p><nav aria-label="本页目录">{toc}</nav></aside></div></body></html>'''
         (OUTPUT / page_name(stem)).write_text(html)
     print(f'Built {len(PAGES)} pages in {OUTPUT}')

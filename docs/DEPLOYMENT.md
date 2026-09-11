@@ -4,7 +4,7 @@
 
 ## 1. 当前部署信息
 
-截至 2026-09-10，公网连接及完整双客户端对局已验证通过。
+2026-09-10 已验证旧版公网连接及完整双客户端对局。2026-09-11 检查时，线上游戏服务仍运行旧版 `kolbb-0.1-rules-1-art-2`；当前 0.1.2 客户端要求升级服务端。
 
 | 项目 | 当前值 |
 | --- | --- |
@@ -18,7 +18,7 @@
 | 日志／轮转配置 | `/var/log/kolbb/server.log`／`/etc/logrotate.d/kolbb` |
 | 状态目录 | `/var/lib/kolbb` |
 | 上传暂存目录 | `/home/ubuntu/kolbb-release` |
-| 当前网络版本标识 | `kolbb-0.1-rules-1-art-2`，见 `scripts/network.gd` |
+| 0.1.2 目标网络版本标识 | `kolbb-0.1.2-rules-2-art-3`，见 `scripts/network.gd` |
 | 容量 | 最多 4 个房间，每房 2 人 |
 
 服务使用 Godot ENet 中继，无账号或数据库。房间和对局状态保存在内存中，重启后房间码失效，无法恢复未完成对局。服务配置为开机启动，异常退出后等待 3 秒重启，内存上限 1 GiB。
@@ -123,7 +123,7 @@ sudo tail -n 60 /var/log/kolbb/server.log
 预期为 `enabled`、`active`，并出现 UDP 7000 监听。最新启动日志应包含：
 
 ```text
-KOLBB relay listening UDP 7000 / 4 rooms / kolbb-0.1-rules-1-art-2
+KOLBB relay listening UDP 7000 / 4 rooms / kolbb-0.1.2-rules-2-art-3
 ```
 
 版本以实际发布源码为准。检查最新一次启动后的日志，历史错误记录不等于当前仍然失败。若服务反复重启或日志文件没有新内容，查看启动错误：
