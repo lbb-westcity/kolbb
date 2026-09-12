@@ -20,6 +20,7 @@ static var CRC_TABLE: PackedInt64Array = make_crc_table()
 var moves: Dictionary = {}
 var state: Dictionary = {}
 var events: Array = []
+var report: Array = []
 
 func _init() -> void:
 	moves = JSON.parse_string(FileAccess.get_file_as_string("res://assets/moves.json"))
@@ -51,12 +52,19 @@ func fighter(ch: int, slot: int, energy: int = 0) -> Dictionary:
 func reset(chars: Array = [0,1], seed_value: int = 1234567, match_id: int = 1) -> void:
 	state = {"frame":0,"world":0,"time":5940,"round":1,"wins":[0,0],"draws":0,"phase":"intro","phase_time":120,"winner":-1,"freeze":0,"cinema":{},"fighters":[fighter(int(chars[0]),0),fighter(int(chars[1]),1)],"entities":[],"next_id":1,"rng":maxi(1,seed_value),"match":match_id}
 	events.clear()
+	report=[{"damage":0,"best_combo":0,"hits":0},{"damage":0,"best_combo":0,"hits":0}]
 
 func event(kind: String, slot: int = -1, data: Dictionary = {}) -> void:
 	var pos: int = state.fighters[slot].x if slot>=0 else 320*FP
 	var e: Dictionary = {"id":"%d/%d/%d" % [state.match,state.frame,events.size()],"kind":kind,"slot":slot,"x":pos/FP,"y":200}
 	e.merge(data,true)
 	events.append(e)
+	if kind in ["hit","block","slam"]:
+		report[slot].damage+=int(e.get("dealt",e.get("damage",0)))
+		if kind!="block":
+			var starts: bool=e.get("combo_start",state.fighters[e.target].combo_age==0)
+			report[slot].hits=1 if starts else report[slot].hits+1
+			report[slot].best_combo=maxi(report[slot].best_combo,report[slot].hits)
 
 func rng(maximum: int) -> int:
 	var x: int = state.rng
@@ -267,10 +275,13 @@ func accept_input(f: Dictionary, other: Dictionary) -> void:
 	if dir != 6: f.run = false
 	f.mode = "crouch" if dir in [1,2,3] else "run" if f.run else "walk" if dir in [4,6] else "idle"
 
+static func energy_label(cost: int) -> String:
+	return "无消耗" if cost==0 else "半格" if cost==50 else "%s 格" % str(cost/100.0).trim_suffix(".0")
+
 func pay(f: Dictionary, cost: int) -> bool:
 	if f.energy < cost:
 		f.flash_meter = 12
-		event("denied",f.slot,{"text":"需要 %d 格能量" % ceili(cost/100.0)})
+		event("denied",f.slot,{"text":"需要 %s能量" % energy_label(cost)})
 		return false
 	f.energy -= cost
 	return true
@@ -550,6 +561,7 @@ func apply_hit(hit: Dictionary) -> void:
 			b.reaction = "poop" if a.char==0 else "laugh"
 			b.reaction_time = 18 if a.char==0 else 22
 			if a.char==0: b.stain = 45
+	var dealt: int=mini(b.hp,damage)
 	b.hp = maxi(0,b.hp-damage)
 	b.age = 0
 	b.move = ""
@@ -571,7 +583,7 @@ func apply_hit(hit: Dictionary) -> void:
 	if hit.kind=="summon": pause = 6 if block else 10
 	if hit.kind=="papers" or (hit.kind=="dance" and hit.sub<3): pause = 2 if block else 3
 	state.freeze = maxi(state.freeze,pause)
-	event("block" if block else "hit",hit.owner,{"target":hit.target,"x":hit.x,"y":hit.y,"damage":damage,"heavy":heavy or hit.kind in ["summon","shoulder","sonic"] or (hit.kind=="dance" and hit.sub==3),"move":hit.move,"combo":b.combo,"combo_damage":b.combo_damage,"combo_start":b.combo==1 and b.combo_damage==damage})
+	event("block" if block else "hit",hit.owner,{"target":hit.target,"x":hit.x,"y":hit.y,"damage":damage,"dealt":dealt,"heavy":heavy or hit.kind in ["summon","shoulder","sonic"] or (hit.kind=="dance" and hit.sub==3),"move":hit.move,"combo":b.combo,"combo_damage":b.combo_damage,"combo_start":b.combo==1 and b.combo_damage==damage})
 
 func finish_frame(f: Dictionary) -> void:
 	f.age += 1
@@ -645,10 +657,11 @@ func advance_cinema(buttons: Array) -> void:
 		if c.kind=="room":
 			b.combo += 1
 			damage = damage*maxi(40,110-b.combo*10)/100
+		var dealt: int=mini(b.hp,damage)
 		b.hp = maxi(0,b.hp-damage)
 		add_energy(b,6)
 		if c.kind=="throw": add_energy(a,10)
-		event("slam",c.owner,{"target":c.target,"damage":damage})
+		event("slam",c.owner,{"target":c.target,"damage":damage,"dealt":dealt})
 	c.age += 1
 	if c.age>=total:
 		var distance: int = 96 if c.kind=="room" else 88 if c.kind=="grab" else 80
@@ -690,6 +703,7 @@ func pick_food() -> void:
 		var e: Dictionary = c.entity
 		if f.pickup>0 or e.dead: continue
 		var amount: int = 50 if e.kind=="pizza" else 200 if e.owner==f.slot else -200
+		if amount<0: report[e.owner].damage+=mini(f.hp,-amount)
 		f.hp = clampi(f.hp+amount,0,1000)
 		f.pickup = 12
 		e.dead = true
@@ -714,10 +728,15 @@ func check_end() -> void:
 	event("ko" if state.time>0 else "time",state.winner)
 
 func snapshot() -> Dictionary:
-	return state.duplicate(true)
+	# Presentation statistics travel with rollback snapshots, outside the rules checksum.
+	var saved: Dictionary=state.duplicate(true)
+	saved["_report"]=report.duplicate(true)
+	return saved
 
 func restore(saved: Dictionary) -> void:
 	state = saved.duplicate(true)
+	report=state.get("_report",report).duplicate(true)
+	state.erase("_report")
 	events.clear()
 
 # Canonical typed encoding: sorted keys, little-endian integers, no rendering state.

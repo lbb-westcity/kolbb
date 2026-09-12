@@ -44,12 +44,23 @@ func urgent(value: bool) -> void:
 	elif not value: urgency.stop()
 func pause_music(value: bool) -> void:
 	music.stream_paused=value;urgency.stream_paused=value
+func voice_for(id: String) -> AudioStreamPlayer:
+	var priority: int=3 if id in ["ko","time","victory","round","fight"] else 2 if id in ["super","slam","heavy"] else 1 if id in ["light","block","max"] else 0
+	var candidate: AudioStreamPlayer=null
+	for player in voices:
+		if not player.playing:
+			candidate=player;break
+		if candidate==null or int(player.get_meta("priority",0))<int(candidate.get_meta("priority",0)) or (player.get_meta("priority",0)==candidate.get_meta("priority",0) and player.get_meta("started",0)<candidate.get_meta("started",0)):
+			candidate=player
+	if candidate.playing and int(candidate.get_meta("priority",0))>priority: return null
+	candidate.set_meta("priority",priority);candidate.set_meta("started",Time.get_ticks_usec())
+	return candidate
+
 func sound(id: String, pitch: float = 1.0) -> void:
 	if silent or not clips.has(id) or last_sounds.get(id,-1)==Engine.get_process_frames(): return
 	last_sounds[id]=Engine.get_process_frames()
-	var player: AudioStreamPlayer=voices[0]
-	for p in voices:
-		if not p.playing: player=p;break
+	var player: AudioStreamPlayer=voice_for(id)
+	if player==null: return
 	player.stream=clips[id];player.pitch_scale=pitch
 	player.volume_db=linear_to_db(maxf(0.0001,master_volume*sfx_volume))-3
 	player.play()

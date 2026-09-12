@@ -4,6 +4,8 @@ const Cpu = preload("res://scripts/cpu.gd")
 const Arena = preload("res://scripts/arena.gd")
 const Sound = preload("res://scripts/audio.gd")
 const Rollback = preload("res://scripts/rollback.gd")
+const Training=preload("res://scripts/training.gd")
+const Gamepad=preload("res://scripts/gamepad.gd")
 const DEFAULT_KEYS = [KEY_W,KEY_S,KEY_A,KEY_D,KEY_J,KEY_K,KEY_U,KEY_I,KEY_SPACE,KEY_O]
 const WINDOW_SIZES = [Vector2i(1920,1080),Vector2i(2560,1440)]
 const KEY_NAMES = ["上","下","左","右","轻拳 A","轻脚 B","重拳 C","重脚 D","翻滚","MAX"]
@@ -22,6 +24,9 @@ var moves_page: int = 0
 var selected: int = 0
 var opponent: int = 1
 var difficulty: int = 1
+var training: bool=false
+var practice=Training.new()
+var gamepad_input: bool=false
 var settings: Dictionary = {"master":80,"music":60,"sfx":80,"shake":true,"flash":false,"fullscreen":false,"window_size":0,"vsync":true,"frame_limit":60,"integer_scale":true,"show_fps":false,"server":"49.235.23.27","keys":DEFAULT_KEYS.duplicate()}
 var config = ConfigFile.new()
 var rebind: int = -1
@@ -69,6 +74,7 @@ func _ready() -> void:
 	Net.result_confirmed.connect(func(_data): verified_result=true)
 	var args=OS.get_cmdline_user_args()
 	if "--verify-assets" in args:
+		arena.prepare_fighters([0,1,2],true)
 		var valid: bool=audio.clips.size()==42 and arena.textures.size()==56 and arena.portrait.size()==Battle.NAMES.size() and arena.framesets.size()==Battle.NAMES.size() and arena.animated_props!=null and arena.littleblack_fx.size()==4
 		print("Asset check: ","PASS" if valid else "FAIL"," / audio ",audio.clips.size()," / atlases ",arena.textures.size())
 		get_tree().quit(0 if valid else 1)
@@ -109,6 +115,7 @@ func save_settings() -> void:
 		ui.get_node("SettingsSaved").add_theme_color_override("font_color",Color("22d9ee") if err==OK else Color("ff802d"))
 	if err!=OK: notice="设置保存失败：%s" % error_string(err)
 func setup_menu_input() -> void:
+	Gamepad.setup()
 	for action in ["ui_up","ui_down","ui_left","ui_right"]:
 		var index: int=["ui_up","ui_down","ui_left","ui_right"].find(action)
 		var event=InputEventKey.new();event.physical_keycode=[KEY_W,KEY_S,KEY_A,KEY_D][index]
@@ -147,7 +154,7 @@ func home_button(title: String,index: int,callback: Callable) -> Button:
 	var font=FontVariation.new();font.base_font=theme.default_font;font.variation_embolden=.6;b.add_theme_font_override("font",font)
 	var empty=StyleBoxEmpty.new();empty.content_margin_left=26;empty.content_margin_right=24
 	for state in ["normal","hover","pressed","focus"]: b.add_theme_stylebox_override(state,empty)
-	b.add_theme_color_override("font_color",Color("899ba8") if index==4 else Color("fff3d9"))
+	b.add_theme_color_override("font_color",Color("899ba8") if title=="退出" else Color("fff3d9"))
 	for state in ["font_focus_color","font_hover_color","font_pressed_color"]: b.add_theme_color_override(state,Color("071827"))
 	var highlight=Polygon2D.new();highlight.color=Color("22d9ee");highlight.show_behind_parent=true
 	highlight.polygon=PackedVector2Array([Vector2(0,0),Vector2(174,0),Vector2(186,12),Vector2(186,27),Vector2(0,27)])
@@ -167,8 +174,9 @@ func home_button(title: String,index: int,callback: Callable) -> Button:
 	return b
 
 func show_home() -> void:
+	training=false
 	if Net.connected or Net.connecting: Net.disconnect_room()
-	screen="home";paused=false;online=false;arena.online=false;arena.hud=false;arena.demo=true
+	screen="home";paused=false;online=false;arena.online=false;arena.hud=false;arena.demo=true;arena.practice_mode=false
 	battle.reset();battle.state.phase="fight"
 	battle.state.fighters[0].x=358*256;battle.state.fighters[1].x=531*256
 	arena.reset_effects();clear_ui();audio.pause_music(false);audio.play_music("menu")
@@ -179,12 +187,14 @@ func show_home() -> void:
 	logo.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;logo.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	logo.position=Vector2(13,29);logo.size=Vector2(280,112);logo.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(logo)
 	text_label("今天的班，就上到这里。",Vector2(30,123),15,Color("fff3d9"),260)
+	var hint=text_label("手柄 X/A/Y/B 攻击 · RB 翻滚 · LB MAX · Start 暂停" if gamepad_input else "WASD 移动 · J/K/U/I 攻击 · Esc 暂停",Vector2(30,334),9,Color("9dbed5"),440);hint.name="InputHint"
 	var buttons: Array[Button]=[
-		home_button("单机对战",0,show_select),
-		home_button("互联网对战",1,show_network),
-		home_button("出招表",2,func(): show_moves("home")),
-		home_button("设置",3,func(): show_settings("home")),
-		home_button("退出",4,func(): get_tree().quit())]
+		home_button("单机对战",0,func(): training=false;show_select()),
+		home_button("练习模式",1,func(): training=true;show_select()),
+		home_button("互联网对战",2,show_network),
+		home_button("出招表",3,func(): show_moves("home")),
+		home_button("设置",4,func(): show_settings("home")),
+		home_button("退出",5,func(): get_tree().quit())]
 	for i in buttons.size():
 		var previous: NodePath=buttons[i].get_path_to(buttons[posmod(i-1,buttons.size())])
 		var next: NodePath=buttons[i].get_path_to(buttons[(i+1)%buttons.size()])
@@ -233,14 +243,14 @@ func show_select(focus_card: int=-1) -> void:
 	text_label("选择你的下班方式",Vector2(172,19),32,ivory,300).add_theme_font_override("font",bold)
 	text_label("C H A R A C T E R   S E L E C T",Vector2(242,62),8,ivory,200)
 	moves_panel(Rect2(214,68,22,1),orange,orange);moves_panel(Rect2(414,68,22,1),orange,orange)
-	text_label("允许镜像 / 99 秒 / 三局两胜",Vector2(488,29),9,ivory,146)
+	text_label("自由练习 / 不限时" if training else "允许镜像 / 99 秒 / 三局两胜",Vector2(488,29),9,ivory,146)
 	moves_panel(Rect2(488,44,126,1),orange,orange)
 	for slot in 2:
 		var character: int=selected if slot==0 else opponent
 		var accent: Color=cyan if slot==0 else orange
 		var x: int=64 if slot==0 else 475
 		moves_panel(Rect2(x,91,101,17),accent,accent)
-		text_label("1P / 你的角色" if slot==0 else "CPU / 对手角色",Vector2(x+6,91),11,Color("061522"),99).add_theme_font_override("font",bold)
+		text_label("1P / 你的角色" if slot==0 else "木桩 / 对手角色" if training else "CPU / 对手角色",Vector2(x+6,91),11,Color("061522"),99).add_theme_font_override("font",bold)
 		var name_label=text_label(Battle.NAMES[character],Vector2(x,113),22 if character!=2 else 20,ivory,158)
 		name_label.add_theme_font_override("font",bold)
 		var role_label=text_label(["远程控场","近身压制","节奏突进"][character],Vector2(x+7,143),12,accent,105)
@@ -259,9 +269,10 @@ func show_select(focus_card: int=-1) -> void:
 	for title in ["简单 · 慢半拍的同事","普通 · 正常营业","困难 · 下班阻击战"]: level.add_item(title)
 	level.fit_to_longest_item=false;level.selected=difficulty;ui.add_child(level);level.size=Vector2(137,26)
 	level.item_selected.connect(func(i): difficulty=i)
+	level.disabled=training
 	var moves=button("出招表",Vector2(278,303),func(): show_moves("select"),80);moves.name="SelectMoves"
 	moves.add_theme_font_size_override("font_size",13);moves.size.y=26;moves.alignment=HORIZONTAL_ALIGNMENT_CENTER
-	var start=button("开始对战  →",Vector2(372,300),start_local,194);start.name="StartBattle"
+	var start=button("开始练习  →" if training else "开始对战  →",Vector2(372,300),start_local,194);start.name="StartBattle"
 	start.add_theme_font_override("font",bold);start.add_theme_font_size_override("font_size",19);start.size.y=31;start.alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var active=StyleBoxFlat.new();active.bg_color=orange;active.border_color=Color("ffba80");active.set_border_width_all(1)
 	start.add_theme_stylebox_override("normal",active)
@@ -278,12 +289,72 @@ func show_select(focus_card: int=-1) -> void:
 	start.focus_neighbor_top=start.get_path_to(cards[3+opponent])
 	cards[selected if focus_card<0 else focus_card].grab_focus()
 func start_local() -> void:
+	arena.practice_mode=training
 	online=false;paused=false;resume_left=0;screen="fight";clear_ui()
 	battle.reset([selected,opponent],randi_range(1,2147483646))
 	cpu=Cpu.new();cpu.level=difficulty;cpu.seed_value=battle.state.rng
 	auto_cpu=Cpu.new();auto_cpu.level=2
 	arena.battle=battle;arena.hud=true;arena.demo=false;arena.online=false;arena.reset_effects();arena.status="CPU / "+["简单","普通","困难"][difficulty]
 	audio.play_music("battle");audio.pause_music(false)
+	if training:
+		practice.reset(battle);arena.reset_effects();arena.practice_mode=true;arena.status="练习木桩";show_training_controls()
+
+func input_name(index: int) -> String:
+	return Gamepad.LABELS[index] if gamepad_input else OS.get_keycode_string(settings.keys[index])
+
+func update_input_device(pad: bool) -> void:
+	if gamepad_input==pad: return
+	gamepad_input=pad
+	refresh_input_hints.call_deferred(screen)
+	var hint=ui.get_node_or_null("InputHint")
+	var reset=ui.get_node_or_null("TrainingReset")
+	if reset: reset.text="重置 View" if pad else "重置 F5"
+	if hint: hint.text="手柄 X/A/Y/B 攻击 · RB 翻滚 · LB MAX · Start 暂停" if pad else "WASD 移动 · J/K/U/I 攻击 · Esc 暂停"
+
+func refresh_input_hints(expected_screen: String) -> void:
+	if screen!=expected_screen: return
+	if screen=="moves": show_moves(return_screen,moves_page)
+	elif screen=="pause": show_pause()
+
+func go_back() -> void:
+	if screen=="fight": show_pause()
+	elif screen=="pause": resume_battle()
+	elif screen in ["moves","settings"]: return_to(return_screen)
+	elif screen=="room": Net.disconnect_room();show_network()
+	elif screen=="connecting": Net.disconnect_room();show_network()
+	elif screen!="home": show_home()
+
+func reset_training() -> void:
+	practice.reset(battle);arena.reset_effects();update_training_text()
+
+func show_training_controls() -> void:
+	if not training or ui.has_node("TrainingReset"): return
+	arena.status="防御木桩" if practice.guard else "站立木桩"
+	var reset=button("重置 View" if gamepad_input else "重置 F5",Vector2(180,70),reset_training,94);reset.name="TrainingReset";reset.focus_mode=Control.FOCUS_NONE;reset.size.y=28;reset.add_theme_font_size_override("font_size",12)
+	var history=text_label("",Vector2(180,296),11,Color("f0e7d5"),280);history.name="TrainingHistory";history.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var action=text_label("",Vector2(180,311),11,Color("ffd166"),280);action.name="TrainingAction";action.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	for label in [history,action]:
+		label.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		label.add_theme_color_override("font_shadow_color",Color("071321"));label.add_theme_constant_override("shadow_outline_size",3)
+	update_training_text()
+
+func update_training_text() -> void:
+	var history=ui.get_node_or_null("TrainingHistory")
+	if history: history.text="输入："+"  ".join(practice.history)
+	var action=ui.get_node_or_null("TrainingAction")
+	if action: action.text="出招："+practice.command
+
+func show_training_menu() -> void:
+	paused=true;screen="pause";clear_ui();audio.pause_music(true)
+	header("练习设置","自由练习，不计入胜负与累计战绩。")
+	button("继续练习",Vector2(32,91),resume_battle,265)
+	button("重置位置",Vector2(332,91),func(): reset_training();resume_battle(),265)
+	button("木桩："+("防御" if practice.guard else "站立"),Vector2(32,141),func(): practice.guard=not practice.guard;show_training_menu(),565)
+	button("自动恢复血量与能量："+("开启" if practice.refill else "关闭"),Vector2(32,191),func(): practice.refill=not practice.refill;show_training_menu(),565)
+	button("出招表",Vector2(32,241),func(): show_moves("pause"),265)
+	button("设置",Vector2(332,241),func(): show_settings("pause"),265)
+	button("结束练习",Vector2(32,291),show_home,565)
+	focus_first()
 
 func moves_panel(rect: Rect2,fill: Color,border: Color) -> Panel:
 	var panel=Panel.new();panel.position=rect.position;panel.size=rect.size
@@ -369,7 +440,7 @@ func show_moves(origin: String, page: int = -1) -> void:
 				x+=29
 			var note=text_label(notes[i],Vector2(416,y),11,Color("e1e8eb"),137)
 			note.size.y=height;note.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
-			var cost=text_label(str(move.cost) if move.cost>0 else "无消耗",Vector2(557,y+13 if ultimate else y),15 if ultimate else 17 if move.cost>0 else 11,gold if move.cost>0 else Color("e1e8eb"),43)
+			var cost=text_label(Battle.energy_label(move.cost),Vector2(557,y+13 if ultimate else y),12 if ultimate else 12 if move.cost>0 else 11,gold if move.cost>0 else Color("e1e8eb"),43)
 			cost.size.y=height-13 if ultimate else height;cost.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER;cost.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 			if ultimate:
 				var badge=moves_keycap("SUPER",Vector2(558,y+1),40,Color("071827"),11,7)
@@ -386,14 +457,14 @@ func show_moves(origin: String, page: int = -1) -> void:
 		moves_panel(Rect2(x-13,328,1,16),Color("294b63"),Color("294b63"))
 		moves_keycap(["A","B","C","D"][i],Vector2(x,326),19,[Color("47a9ee"),Color("ff791f"),cyan,Color("f06455")][i],20)
 		text_label(["轻拳","轻脚","重拳","重脚"][i],Vector2(x+25,326),11,Color("f0e7d5"),28)
-		moves_keycap(OS.get_keycode_string(settings.keys[4+i]),Vector2(x+58,327),38,muted,18,10)
+		moves_keycap(input_name(4+i),Vector2(x+58,327),38,muted,18,10)
 	tabs[moves_page].grab_focus()
 
 func moves_common() -> void:
-	var roll_key: String=OS.get_keycode_string(settings.keys[8])
-	var max_key: String=OS.get_keycode_string(settings.keys[9])
+	var roll_key: String=input_name(8)
+	var max_key: String=input_name(9)
 	var titles=["01  移动与防守","02  攻击与普通投","03  翻滚与 MAX","04  实战提示"]
-	var descriptions=["后：站防   /   下后：蹲防\n上轻点 / 按住：小跳 / 普通跳\n前前：跑   /   后后：后撤\n跑中上 / 下后上：大跳", "下 + 攻击：蹲攻击\n空中 + 攻击：跳攻击\n近身前 / 后 + C：普通投\n受抓 7 帧内 C / D：拆普通投", "%s 或 A+B：翻滚，仍会被抓\n%s 或 B+C：MAX，消耗 100 能量\n重拳 / 重脚命中后快速 MAX：200 能量\nMAX 内超必杀：本次 100，清空 MAX" % [roll_key,max_key], "先用轻拳确认命中，再试 下、前 + 重拳。\n普通攻击无防御削血。\n必杀削血不会 KO。\n食物只由物主获益，别误吃对手的汉堡。"]
+	var descriptions=["后：站防   /   下后：蹲防\n上轻点 / 按住：小跳 / 普通跳\n前前：跑   /   后后：后撤\n跑中上 / 下后上：大跳", "下 + 攻击：蹲攻击\n空中 + 攻击：跳攻击\n近身前 / 后 + C：普通投\n受抓 7 帧内 C / D：拆普通投", "%s 或 A+B：翻滚，仍会被抓\n%s 或 B+C：MAX，消耗 1 格能量\n重拳 / 重脚命中后快速 MAX：2 格能量\nMAX 内超必杀：本次 1 格，清空 MAX" % [roll_key,max_key], "先用轻拳确认命中，再试 下、前 + 重拳。\n普通攻击无防御削血。\n必杀削血不会 KO。\n食物只由物主获益，别误吃对手的汉堡。"]
 	for i in 4:
 		var x: int=34+(i%2)*292;var y: int=83+(i/2)*117
 		var accent=Color("35d8eb") if i<2 else Color("ffd166")
@@ -588,6 +659,7 @@ func pause_button(title: String,icon: String,y: int,callback: Callable) -> Butto
 	return b
 
 func show_pause() -> void:
+	if training: show_training_menu();return
 	if not online: paused=true;audio.pause_music(true)
 	screen="pause";clear_ui()
 	var keyboard_hints: bool=true
@@ -621,8 +693,8 @@ func show_pause() -> void:
 	if keyboard_hints:
 		moves_keycap("↑",Vector2(233,307),12,ivory,14,8);moves_keycap("↓",Vector2(248,307),12,ivory,14,8)
 		text_label("选择",Vector2(265,307),8,ivory,24)
-		moves_keycap("ENTER",Vector2(296,307),32,ivory,14,8);text_label("确认",Vector2(333,307),8,ivory,24)
-		moves_keycap("ESC",Vector2(366,307),23,ivory,14,8);text_label("继续",Vector2(395,307),8,ivory,24)
+		moves_keycap("A" if gamepad_input else "ENTER",Vector2(296,307),32,ivory,14,8);text_label("确认",Vector2(333,307),8,ivory,24)
+		moves_keycap("Start" if gamepad_input else "ESC",Vector2(366,307),23,ivory,14,8);text_label("继续",Vector2(395,307),8,ivory,24)
 	for i in buttons.size():
 		buttons[i].focus_neighbor_top=buttons[i].get_path_to(buttons[posmod(i-1,buttons.size())])
 		buttons[i].focus_neighbor_bottom=buttons[i].get_path_to(buttons[(i+1)%buttons.size()])
@@ -645,7 +717,9 @@ func show_result() -> void:
 			if battle.state.fighters[0].hp==1000: stats.perfect+=1
 		save_settings()
 	text_label("下班成功。" if winner==(Net.slot if online else 0) else "再来一局，把场子找回来。",Vector2(32,110),20,Color("ffd166"))
-	text_label("累计胜场 %d   最佳连击 %d   完美终局 %d" % [stats.wins,stats.best_combo,stats.perfect],Vector2(32,156),16)
+	var me: int=Net.slot if online else 0
+	text_label("本局最高连击 %d   造成伤害 %d   剩余生命 %d / 1000" % [battle.report[me].best_combo,battle.report[me].damage,battle.state.fighters[me].hp],Vector2(32,146),15)
+	text_label("累计胜场 %d   最佳连击 %d   完美终局 %d" % [stats.wins,stats.best_combo,stats.perfect],Vector2(32,176),12)
 	button("再战",Vector2(196,208),func():
 		if online: show_room();Net.set_ready(true)
 		else: start_local())
@@ -668,15 +742,15 @@ func show_network() -> void:
 		for c in value.to_upper():
 			if c in Net.ALPHABET: cleaned+=c
 		if code.text!=cleaned: code.text=cleaned;code.caret_column=cleaned.length())
-	button("创建房间",Vector2(32,202),func(): settings.server=host.text.strip_edges();save_settings();notice="正在连接服务器…";Net.connect_room(settings.server);show_connecting(),265)
+	button("创建房间",Vector2(32,202),func(): settings.server=host.text.strip_edges();save_settings();notice="正在连接服务器…";show_connecting();Net.connect_room(settings.server),265)
 	button("加入房间",Vector2(327,202),func():
 		if code.text.length()!=6: code.placeholder_text="需要六位房间码";code.grab_focus();return
-		settings.server=host.text.strip_edges();save_settings();notice="正在连接服务器…";Net.connect_room(settings.server,code.text);show_connecting(),265)
+		settings.server=host.text.strip_edges();save_settings();notice="正在连接服务器…";var room_code=code.text;show_connecting();Net.connect_room(settings.server,room_code),265)
 	if notice!="":
 		var l=text_label(notice,Vector2(32,248),14,Color("f29646"),555);l.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	back_button(show_home);host.grab_focus()
 func show_connecting() -> void:
-	clear_ui();header("连接中",notice);back_button(func(): Net.disconnect_room();show_network())
+	screen="connecting";clear_ui();header("连接中",notice);back_button(func(): Net.disconnect_room();show_network())
 func _room_changed(_data: Dictionary) -> void:
 	if screen!="fight" and screen!="pause" and screen!="result": show_room()
 func show_room() -> void:
@@ -693,6 +767,7 @@ func show_room() -> void:
 	button("取消准备" if r.ready[Net.slot] else "准备",Vector2(332,225),func(): Net.set_ready(not r.ready[Net.slot]),265)
 	back_button(func(): Net.disconnect_room();show_network());focus_first()
 func _online_start(info: Dictionary) -> void:
+	training=false;arena.practice_mode=false
 	online=true;paused=false;screen="fight";clear_ui();waiting=0;result_wait=0;result_sent=false;verified_result=false;deferred_events.clear()
 	rollback=Rollback.new();rollback.start(info.chars,info.seed,info.match,info.slot);battle=rollback.battle
 	arena.battle=battle;arena.hud=true;arena.demo=false;arena.online=true;arena.reset_effects();audio.play_music("battle");audio.pause_music(false)
@@ -707,7 +782,7 @@ func _network_failed(reason: String) -> void:
 
 func input_bits() -> int:
 	if screen!="fight" or resume_left>0: return 0
-	var bits: int=0
+	var bits: int=Gamepad.bits()
 	for i in 10:
 		if Input.is_physical_key_pressed(settings.keys[i]): bits|=1<<i
 	return bits
@@ -745,10 +820,12 @@ func _physics_process(dt: float) -> void:
 	elif screen=="fight" and not paused:
 		var start: int=Time.get_ticks_usec()
 		var bits: int=auto_cpu.sample(battle,0) if tests_demo else input_bits()
-		var ev: Array=battle.step([bits,cpu.sample(battle,1)])
+		var ev: Array=practice.step(battle,bits) if training else battle.step([bits,cpu.sample(battle,1)])
+		if training and battle.state.frame==0: arena.reset_effects()
 		arena.performance_us=Time.get_ticks_usec()-start
 		arena.present(ev,audio)
-		stats.best_combo=maxi(stats.best_combo,arena.combo_hits[1])
+		if training: update_training_text()
+		else: stats.best_combo=maxi(stats.best_combo,battle.report[0].best_combo)
 		if battle.state.phase=="done": show_result()
 	if screen=="fight" or online: audio.urgent(battle.state.time<=1200 and battle.state.phase=="fight")
 func _process(dt: float) -> void:
@@ -759,9 +836,19 @@ func _process(dt: float) -> void:
 		if resume_left==0:
 			paused=false;clear_ui();audio.pause_music(false)
 			arena.resume_fight_left=.5+dt
+			show_training_controls()
 	arena.animate(dt,paused and not online)
 func _input(event: InputEvent) -> void:
 	if not arena: return
+	if event is InputEventJoypadMotion and absf(event.axis_value)>.3: update_input_device(true)
+	if event is InputEventJoypadButton and event.pressed:
+		update_input_device(true)
+		if training and screen=="fight" and event.button_index==JOY_BUTTON_BACK: reset_training();get_viewport().set_input_as_handled();return
+		if event.button_index==JOY_BUTTON_START or (event.button_index==JOY_BUTTON_B and screen!="fight"):
+			go_back();get_viewport().set_input_as_handled();return
+	if event is InputEventKey and event.pressed:
+		update_input_device(false)
+		if training and screen=="fight" and event.keycode==KEY_F5: reset_training();get_viewport().set_input_as_handled();return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if rebind>=0:
 			if event.keycode==KEY_ESCAPE: key_button.text=OS.get_keycode_string(settings.keys[rebind]);rebind=-1
@@ -780,11 +867,7 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled();return
 		if event.keycode==KEY_F3: arena.debug=not arena.debug
 		if event.keycode==KEY_ESCAPE:
-			if screen=="fight": show_pause()
-			elif screen=="pause": resume_battle()
-			elif screen in ["moves","settings"]: return_to(return_screen)
-			elif screen=="room": Net.disconnect_room();show_network()
-			elif screen!="home": show_home()
+			go_back()
 			get_viewport().set_input_as_handled()
 func _notification(what: int) -> void:
 	if what==NOTIFICATION_APPLICATION_FOCUS_OUT and arena and screen=="fight" and not tests_demo:

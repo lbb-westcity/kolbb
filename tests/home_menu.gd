@@ -17,7 +17,7 @@ func run() -> void:
 	var buttons: Array=[]
 	for child in main.ui.get_children():
 		if child is Button: buttons.append(child)
-	assert(buttons.size()==5)
+	assert(buttons.size()==6)
 	assert(main.ui.get_node("Logo").texture.get_image().has_mipmaps()==false)
 	assert(main.arena.bg.resource_path=="res://assets/stage/menu-office.png")
 	for i in buttons.size():
@@ -26,7 +26,7 @@ func run() -> void:
 		await press(KEY_DOWN)
 	assert(buttons[0].has_focus(),"Down wraps to first entry")
 	await press(KEY_W)
-	assert(buttons[4].has_focus(),"W wraps to last entry")
+	assert(buttons[5].has_focus(),"W wraps to last entry")
 	await press(KEY_S)
 	assert(buttons[0].has_focus())
 	await press(KEY_D)
@@ -54,5 +54,5 @@ func run() -> void:
 	assert(main.arena.bg.resource_path=="res://assets/stage/office.png")
 	main.show_home()
 	assert(main.arena.bg.resource_path=="res://assets/stage/menu-office.png")
-	print("PASS home menu: five entries, keyboard navigation, activation, return and background restoration")
+	print("PASS home menu: six entries, keyboard navigation, activation, return and background restoration")
 	main.queue_free();await process_frame;quit()

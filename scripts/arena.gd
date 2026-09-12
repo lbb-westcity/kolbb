@@ -24,6 +24,7 @@ var settings: Dictionary = {}
 var countdown: float = 0
 var resume_fight_left: float = 0
 var hud: bool = false
+var practice_mode: bool=false
 var demo: bool = true
 var character_select: bool = false
 var debug: bool = false
@@ -47,24 +48,40 @@ func _ready() -> void:
 	round_font=FontVariation.new();round_font.base_font=load("res://assets/ui/Bungee-Regular.ttf")
 	round_font.variation_transform=Transform2D(Vector2(1,0.22),Vector2(0,1),Vector2.ZERO)
 	bg=load("res://assets/stage/office.png")
-	if ResourceLoader.exists("res://assets/props/props.png"): props=load("res://assets/props/props.png")
-	if ResourceLoader.exists("res://assets/props/animated.png"): animated_props=load("res://assets/props/animated.png")
-	for who in Battle.ART:
-		if ResourceLoader.exists("res://assets/fighters/%s_frames.tres" % who): framesets[who]=load("res://assets/fighters/%s_frames.tres" % who)
-		for group in ["core","normals","specials","air","locomotion","reaction","performance","normals2","specials2","wardrobe"]:
-			var path: String="res://assets/fighters/%s_%s.png" % [who,group]
-			if ResourceLoader.exists(path):
-				textures[who+"_"+group]=load(path)
-				var alternate: String=path.replace(".png","_alt.png")
-				if ResourceLoader.exists(alternate): textures[who+"_"+group+"_alt"]=load(alternate)
+
 	for who in Battle.ART:
 		portrait.append(load("res://assets/ui/"+who+"_portrait.png") if ResourceLoader.exists("res://assets/ui/"+who+"_portrait.png") else null)
 
-	for name in ["ball","sonic","shoulder","trousers"]:
-		var path: String="res://assets/props/littleblack_%s.png" % name
-		if ResourceLoader.exists(path): littleblack_fx[name]=load(path)
+	prepare_fighters([0,1],false)
+
+func prepare_fighters(characters: Array, full: bool) -> void:
+	var names: Array=[]
+	for character in characters:
+		var who: String=Battle.ART[character]
+		if who not in names: names.append(who)
+	for key in textures.keys():
+		if not names.any(func(who): return key.begins_with(who+"_") and (full or key in [who+"_core",who+"_core_alt"])): textures.erase(key)
+	for who in framesets.keys():
+		if who not in names: framesets.erase(who)
+	for who in names: load_fighter(who,full)
+	if full:
+		props=load("res://assets/props/props.png");animated_props=load("res://assets/props/animated.png")
+		if 2 in characters:
+			for name in ["ball","sonic","shoulder","trousers"]: littleblack_fx[name]=load("res://assets/props/littleblack_"+name+".png")
+	if not full or 2 not in characters: littleblack_fx.clear()
+	if not full: props=null;animated_props=null
+
+func load_fighter(who: String, full: bool) -> void:
+	framesets[who]=load("res://assets/fighters/%s_%s.tres" % [who,"frames" if full else "preview"])
+	for group in (["core","normals","specials","air","locomotion","reaction","performance","normals2","specials2","wardrobe"] if full else ["core"]):
+		for suffix in ["","_alt"]:
+			var key: String=who+"_"+group+suffix
+			var path: String="res://assets/fighters/"+key+".png"
+			if not textures.has(key) and ResourceLoader.exists(path): textures[key]=load(path)
 
 func reset_effects() -> void:
+	queue_redraw()
+	if battle: prepare_fighters(battle.state.fighters.map(func(f): return f.char),hud)
 	seen.clear();fx.clear();trauma=0;delayed_hp=[1000.0,1000.0];damage_wait=[0.0,0.0];combo_hits=[0,0];message_age=0
 
 func present(events: Array, audio) -> void:
@@ -282,6 +299,7 @@ func draw_fighter(f: Dictionary,override_pos: Vector2=Vector2.INF,override_frame
 	if override_frame>=0: anim=["core",override_frame]
 	if not override_anim.is_empty(): anim=override_anim
 	var who: String=Battle.ART[f.char]
+	if not textures.has(who+"_core"): load_fighter(who,hud)
 	var key: String=who+"_"+anim[0]
 	if not textures.has(key): key=who+"_core";anim=["core",19]
 	var tex: Texture2D=textures[key]
@@ -642,8 +660,9 @@ func draw_hud() -> void:
 	hud_panel(PackedVector2Array([Vector2(289,18),Vector2(351,18),Vector2(361,36),Vector2(351,62),Vector2(289,62),Vector2(279,36)]),Color("071321"),Color("436579"),2)
 	draw_polyline(PackedVector2Array([Vector2(286,23),Vector2(279,36),Vector2(289,56)]),Color("32e1ef"),2)
 	draw_polyline(PackedVector2Array([Vector2(354,23),Vector2(361,36),Vector2(351,56)]),Color("ff802d"),2)
-	draw_string(round_font,Vector2(280,47),"%02d" % ceili(s.time/60.0),HORIZONTAL_ALIGNMENT_CENTER,80,32,RED if s.time<=1200 else Color("fff3d2"))
-	hud_text("ROUND %d" % s.round,Vector2(280,59),10,IVORY,HORIZONTAL_ALIGNMENT_CENTER,80)
+	if practice_mode: hud_text("∞",Vector2(280,47),32,IVORY,HORIZONTAL_ALIGNMENT_CENTER,80)
+	else: draw_string(round_font,Vector2(280,47),"%02d" % ceili(s.time/60.0),HORIZONTAL_ALIGNMENT_CENTER,80,32,RED if s.time<=1200 else Color("fff3d2"))
+	hud_text("练习" if practice_mode else "ROUND %d" % s.round,Vector2(280,59),10,IVORY,HORIZONTAL_ALIGNMENT_CENTER,80)
 	if online and status!="":
 		if status=="等待网络":
 			box(Rect2(365,51,96,22),Color(INK,.95),GOLD)

@@ -2,6 +2,7 @@
 set -euo pipefail
 cd -- "$(dirname -- "$0")/.."
 GODOT_BIN="${GODOT_BIN:-/Applications/Godot.app/Contents/MacOS/Godot}"
+"$GODOT_BIN" --headless --path . --script tests/improvements.gd
 "$GODOT_BIN" --headless --path . --script tests/hud.gd
 "$GODOT_BIN" --headless --path . --script tests/settings_ui.gd
 "$GODOT_BIN" --headless --path . --script tests/pause_ui.gd
