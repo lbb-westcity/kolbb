@@ -461,7 +461,7 @@ func setting_control(spec: Array, row: Panel) -> Control:
 		slider.custom_minimum_size=Vector2(94,25)
 		control=slider
 	elif spec[2]=="toggle":
-		var toggle=CheckButton.new();toggle.layout_direction=Control.LAYOUT_DIRECTION_RTL;toggle.text="开启" if settings[key] else "关闭";toggle.button_pressed=settings[key]
+		var toggle=CheckBox.new();toggle.text="开启" if settings[key] else "关闭";toggle.button_pressed=settings[key]
 		for state in ["checked","unchecked"]:
 			var on: bool=state=="checked"
 			var icon=Image.new()
@@ -510,7 +510,7 @@ func show_settings(origin: String,page: int=0) -> void:
 	moves_panel(Rect2(200,34,1,25),ivory,ivory)
 	text_label("设置",Vector2(216,24),24,ivory,94).add_theme_font_override("font",bold)
 	text_label("S E T T I N G S",Vector2(218,55),7,ivory,120)
-	var saved=text_label(settings_save_status,Vector2(484,37),10,cyan,99);saved.name="SettingsSaved"
+	var saved=text_label(settings_save_status,Vector2(484,37),10,Color("ff802d") if settings_save_status.begins_with("保存失败") else cyan,99);saved.name="SettingsSaved"
 	var tabs: Array=[]
 	for i in 4:
 		var tab=button(["▣  视频","▧  图形","▤  按键","♪  声音"][i],Vector2(60+i*131,70),func(): show_settings(origin,i),128)
@@ -554,7 +554,7 @@ func show_settings(origin: String,page: int=0) -> void:
 		var normal=StyleBoxFlat.new();normal.bg_color=Color("071725");normal.border_color=Color("82b8d5");normal.set_border_width_all(1);normal.set_corner_radius_all(2);normal.content_margin_left=8;normal.content_margin_right=8
 		var focus=normal.duplicate();focus.border_color=cyan
 		for state in ["normal","hover","pressed"]: item.add_theme_stylebox_override(state,normal)
-		item.add_theme_stylebox_override("focus",focus);item.size.y=20
+		item.add_theme_stylebox_override("focus",focus);item.size=Vector2(87 if item==back else 103,20)
 	for i in controls.size():
 		controls[i].focus_neighbor_top=controls[i].get_path_to(tabs[settings_page] if i==0 else controls[i-1])
 		controls[i].focus_neighbor_bottom=controls[i].get_path_to(reset if i==controls.size()-1 else controls[i+1])

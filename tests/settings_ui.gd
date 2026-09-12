@@ -26,7 +26,12 @@ func run() -> void:
 	for page in 4:
 		main.show_settings("home",page)
 		await shot(page)
-		assert(main.ui.get_node("SettingsPanel").get_rect().end.y<=360)
+		var bounds: Rect2=main.ui.get_node("SettingsPanel").get_rect()
+		assert(bounds.end.y<=360)
+		for footer in ["SettingsBack","SettingsReset"]: assert(bounds.encloses(main.ui.get_node(footer).get_rect()),"Footer stays within panel")
+		for key in ["vsync","integer_scale","show_fps","shake","flash"]:
+			var toggle=main.ui.find_child("Setting_"+key,true,false)
+			if toggle: assert(toggle.position.x>=160,"Toggle must not overlap row label")
 		assert(main.ui.get_node("SettingsPreview").get_child(0).battle!=main.battle,"Preview must not alter current match")
 		assert(main.ui.get_node("SettingsTab"+str(page)).has_focus())
 		if page==0:
@@ -59,6 +64,18 @@ func run() -> void:
 			main.ui.find_child("Setting_music",true,false).value=35
 			assert(main.settings.music==35 and is_equal_approx(main.audio.music_volume,.35))
 	assert(main.saves>=5,"Control changes invoke automatic save")
+	main.show_settings("home",0)
+	var tab: Button=main.ui.get_node("SettingsTab2")
+	var point: Vector2=main.position+tab.get_rect().get_center()
+	for down in [true,false]:
+		if mobile:
+			var event=InputEventScreenTouch.new();event.index=0;event.pressed=down;event.position=root.get_final_transform()*point
+			Input.parse_input_event(event);Input.flush_buffered_events()
+		else:
+			var event=InputEventMouseButton.new();event.button_index=MOUSE_BUTTON_LEFT;event.pressed=down;event.position=point
+			root.push_input(event,true)
+	await process_frame;await process_frame
+	assert(main.settings_page==2,"Mouse/touch activates category tabs")
 	main.show_settings("home",0);await press(KEY_LEFT);assert(main.settings_page==3)
 	await press(KEY_RIGHT);assert(main.settings_page==0)
 	main.start_local();main.show_pause();var frame: int=main.battle.state.frame
