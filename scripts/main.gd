@@ -431,15 +431,63 @@ func apply_display() -> void:
 	if not settings.fullscreen:
 		DisplayServer.window_set_size(WINDOW_SIZES[settings.window_size])
 
+func pause_button(title: String,icon: String,y: int,callback: Callable) -> Button:
+	var b=button(title,Vector2(220,y),callback,200)
+	b.add_theme_font_size_override("font_size",15)
+	var bold=FontVariation.new();bold.base_font=theme.default_font;bold.variation_embolden=.7;b.add_theme_font_override("font",bold)
+	var normal=StyleBoxFlat.new();normal.bg_color=Color("102331");normal.border_color=Color("345264");normal.set_border_width_all(1);normal.set_corner_radius_all(2)
+	normal.content_margin_left=34;normal.content_margin_right=6;normal.content_margin_top=0;normal.content_margin_bottom=0
+	var active=normal.duplicate();active.bg_color=Color("ff791f");active.border_color=Color("ffab65")
+	b.add_theme_stylebox_override("normal",normal);b.add_theme_stylebox_override("hover",normal)
+	b.add_theme_stylebox_override("focus",active);b.add_theme_stylebox_override("pressed",active)
+	b.add_theme_color_override("font_hover_color",Color("fff3d9"));b.add_theme_color_override("font_focus_color",Color("061522"));b.add_theme_color_override("font_pressed_color",Color("061522"))
+	b.size=Vector2(200,26)
+	var symbol=Label.new();symbol.text=icon;symbol.position=Vector2(9,1);symbol.add_theme_font_size_override("font_size",17)
+	symbol.add_theme_color_override("font_color",Color("fff3d9"));symbol.mouse_filter=Control.MOUSE_FILTER_IGNORE;b.add_child(symbol)
+	b.focus_entered.connect(func(): symbol.add_theme_color_override("font_color",Color("061522")))
+	b.focus_exited.connect(func(): symbol.add_theme_color_override("font_color",Color("fff3d9")))
+	b.mouse_entered.connect(b.grab_focus)
+	return b
+
 func show_pause() -> void:
 	if not online: paused=true;audio.pause_music(true)
-	screen="pause";clear_ui();header("对局菜单" if online else "暂停","对局仍在继续；菜单打开时你的输入保持中立。" if online else "准备好后继续，恢复前有 3 秒倒计时。")
-	button("继续对战",Vector2(196,100),resume_battle)
-	button("出招表",Vector2(196,147),func(): show_moves("pause"))
-	button("设置",Vector2(196,194),func(): show_settings("pause"))
-	button("退出对局",Vector2(196,241),func():
-		if online: Net.disconnect_room()
-		show_home())
+	screen="pause";clear_ui()
+	var keyboard_hints: bool=true
+	var ivory=Color("fff3d9");var cyan=Color("22d9ee");var orange=Color("ff791f")
+	var bold=FontVariation.new();bold.base_font=theme.default_font;bold.variation_embolden=1.1
+	shade(Rect2(0,0,640,360),.23)
+	var panel=moves_panel(Rect2(208,54,224,274 if keyboard_hints else 251),Color("061522"),Color("45b8dc"));panel.name="PausePanel"
+	var border: StyleBoxFlat=panel.get_theme_stylebox("panel");border.set_corner_radius_all(3)
+	moves_panel(Rect2(300,53,40,3),orange,orange)
+	var logo=TextureRect.new();logo.texture=preload("res://assets/ui/kolbb-logo.png")
+	logo.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;logo.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.position=Vector2(221,60);logo.size=Vector2(71,26);logo.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(logo)
+	moves_panel(Rect2(302,71,14,1),orange,orange)
+	text_label("O N L I N E" if online else "P A U S E D",Vector2(326,66),8,ivory,86)
+	if online:
+		text_label("对局菜单",Vector2(235,89),30,ivory,175).add_theme_font_override("font",bold)
+	else:
+		for x in [240,251]: moves_panel(Rect2(x,92,7,25),orange,orange)
+		text_label("暂停",Vector2(271,79),39,ivory,110).add_theme_font_override("font",bold)
+	text_label("联机对局仍在继续。" if online else "准备好后，继续对战。",Vector2(220,125),11,ivory,200).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var buttons: Array[Button]=[
+		pause_button("继续对战","▶",145,resume_battle),
+		pause_button("出招表","▤",176,func(): show_moves("pause")),
+		pause_button("设置","⚙",207,func(): show_settings("pause")),
+		pause_button("退出对局","⇥",248,func():
+			if online: Net.disconnect_room()
+			show_home())]
+	moves_panel(Rect2(220,241,200,1),Color("345264"),Color("345264"))
+	moves_panel(Rect2(220,281,200,1),Color("345264"),Color("345264"))
+	text_label("菜单打开期间，你的输入保持中立。" if online else "恢复对战前将进行 3 秒倒计时。",Vector2(220,287),9,cyan,200).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	if keyboard_hints:
+		moves_keycap("↑",Vector2(233,307),12,ivory,14,8);moves_keycap("↓",Vector2(248,307),12,ivory,14,8)
+		text_label("选择",Vector2(265,307),8,ivory,24)
+		moves_keycap("ENTER",Vector2(296,307),32,ivory,14,8);text_label("确认",Vector2(333,307),8,ivory,24)
+		moves_keycap("ESC",Vector2(366,307),23,ivory,14,8);text_label("继续",Vector2(395,307),8,ivory,24)
+	for i in buttons.size():
+		buttons[i].focus_neighbor_top=buttons[i].get_path_to(buttons[posmod(i-1,buttons.size())])
+		buttons[i].focus_neighbor_bottom=buttons[i].get_path_to(buttons[(i+1)%buttons.size()])
 	focus_first()
 func resume_battle() -> void:
 	clear_ui();screen="fight"
