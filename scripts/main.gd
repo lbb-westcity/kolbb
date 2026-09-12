@@ -16,11 +16,13 @@ var ui: Control
 var theme: Theme
 var screen: String = "home"
 var return_screen: String = "home"
+var settings_page: int = 0
+var settings_save_status: String = "✓ 自动保存"
 var moves_page: int = 0
 var selected: int = 0
 var opponent: int = 1
 var difficulty: int = 1
-var settings: Dictionary = {"master":80,"music":60,"sfx":80,"shake":true,"flash":false,"fullscreen":false,"window_size":0,"server":"49.235.23.27","keys":DEFAULT_KEYS.duplicate()}
+var settings: Dictionary = {"master":80,"music":60,"sfx":80,"shake":true,"flash":false,"fullscreen":false,"window_size":0,"vsync":true,"frame_limit":60,"integer_scale":true,"show_fps":false,"server":"49.235.23.27","keys":DEFAULT_KEYS.duplicate()}
 var config = ConfigFile.new()
 var rebind: int = -1
 var key_button: Button
@@ -83,6 +85,8 @@ func load_settings() -> void:
 	for key in settings:
 		var value=config.get_value("settings",key,settings[key])
 		if key in ["master","music","sfx"]: settings[key]=clampi(int(value),0,100)
+		elif key=="frame_limit": settings[key]=int(value) if int(value) in [0,30,60,120] else 60
+		elif key in ["vsync","integer_scale","show_fps"]: settings[key]=value if value is bool else settings[key]
 		elif key=="window_size": settings[key]=clampi(int(value),0,WINDOW_SIZES.size()-1)
 		elif key=="keys":
 			if value is Array and value.size()==10:
@@ -99,6 +103,10 @@ func save_settings() -> void:
 	for key in settings: config.set_value("settings",key,settings[key])
 	for key in stats: config.set_value("stats",key,stats[key])
 	var err: Error=config.save("user://settings.cfg")
+	settings_save_status="✓ 已自动保存" if err==OK else "保存失败，请重试"
+	if ui and ui.has_node("SettingsSaved"):
+		ui.get_node("SettingsSaved").text=settings_save_status
+		ui.get_node("SettingsSaved").add_theme_color_override("font_color",Color("22d9ee") if err==OK else Color("ff802d"))
 	if err!=OK: notice="设置保存失败：%s" % error_string(err)
 func setup_menu_input() -> void:
 	for action in ["ui_up","ui_down","ui_left","ui_right"]:
@@ -111,7 +119,7 @@ func valid_key(code: int) -> bool:
 func clear_ui() -> void:
 	resume_left=0;arena.countdown=0;arena.resume_fight_left=0
 	for child in ui.get_children(): ui.remove_child(child);child.queue_free()
-	arena.bg=load("res://assets/stage/menu-office.png" if screen in ["home","select"] else "res://assets/stage/office.png")
+	arena.bg=load("res://assets/stage/menu-office.png" if screen in ["home","select","settings"] else "res://assets/stage/office.png")
 	arena.character_select=screen=="select"
 	rebind=-1
 func text_label(text: String,pos: Vector2,size: int=16,color: Color=Color("f0e7d5"),width: int=580) -> Label:
@@ -400,33 +408,163 @@ func return_to(origin: String) -> void:
 		"room": show_room()
 		_: show_home()
 
-func show_settings(origin: String) -> void:
-	return_screen=origin;screen="settings";clear_ui();header("设置","音量、显示与按键自动保存；按键冲突时交换绑定")
-	var scroll=ScrollContainer.new();scroll.position=Vector2(32,80);scroll.size=Vector2(570,210);ui.add_child(scroll)
-	var rows=VBoxContainer.new();rows.size_flags_horizontal=Control.SIZE_EXPAND_FILL;rows.add_theme_constant_override("separation",10);scroll.add_child(rows)
-	for pair in [["主音量","master"],["音乐","music"],["音效","sfx"]]:
-		var row=HBoxContainer.new();rows.add_child(row)
-		var name_label=Label.new();name_label.text=pair[0];name_label.custom_minimum_size.x=105;row.add_child(name_label)
-		var slider=HSlider.new();slider.min_value=0;slider.max_value=100;slider.step=5;slider.value=settings[pair[1]];slider.custom_minimum_size=Vector2(310,24);row.add_child(slider)
-		var value_label=Label.new();value_label.text=str(slider.value);row.add_child(value_label)
-		slider.value_changed.connect(func(v): settings[pair[1]]=int(v);value_label.text=str(int(v));audio.configure(settings);save_settings())
-	var display_row=HBoxContainer.new();rows.add_child(display_row)
-	var display_label=Label.new();display_label.text="窗口分辨率";display_label.custom_minimum_size.x=105;display_row.add_child(display_label)
-	var resolution=OptionButton.new();resolution.custom_minimum_size=Vector2(350,30)
-	resolution.add_item("1920 × 1080  ·  Full HD");resolution.add_item("2560 × 1440  ·  2K")
-	resolution.selected=settings.window_size;resolution.disabled=settings.fullscreen;display_row.add_child(resolution)
-	resolution.item_selected.connect(func(index): settings.window_size=index;apply_display();save_settings())
-	var display_hint=Label.new();display_hint.text="全屏使用屏幕原生分辨率；画面保持整数缩放。";display_hint.add_theme_font_size_override("font_size",12);rows.add_child(display_hint)
-	for pair in [["全屏","fullscreen"],["震屏","shake"],["减少闪光","flash"]]:
-		var check=CheckButton.new();check.text=pair[0];check.button_pressed=settings[pair[1]];rows.add_child(check)
-		check.toggled.connect(func(value): settings[pair[1]]=value;apply_display();resolution.disabled=settings.fullscreen;save_settings())
-	for i in 10:
-		var key=Button.new();key.text=KEY_NAMES[i]+"    "+OS.get_keycode_string(settings.keys[i]);key.alignment=HORIZONTAL_ALIGNMENT_LEFT;rows.add_child(key)
-		key.pressed.connect(func(): rebind=i;key_button=key;key.text=KEY_NAMES[i]+"    请按新键（Esc 取消）")
-	var defaults=Button.new();defaults.text="恢复默认键位";rows.add_child(defaults)
-	defaults.pressed.connect(func(): settings.keys=DEFAULT_KEYS.duplicate();save_settings();show_settings(origin))
-	back_button(func(): return_to(origin));focus_first()
+func setting_specs() -> Array:
+	match settings_page:
+		0:
+			return [
+				["fullscreen","显示模式","choice",["窗口模式","全屏模式"],false,"全屏使用屏幕原生分辨率。"],
+				["window_size","窗口分辨率","choice",["1920 × 1080","2560 × 1440"],0,"调整窗口大小。\n全屏时使用屏幕原生分辨率。\n整数缩放可保持像素边缘清晰。"],
+				["vsync","垂直同步","toggle",[],true,"与屏幕刷新同步，减少画面撕裂。"],
+				["frame_limit","帧率上限","choice",["30 FPS","60 FPS","120 FPS","不限"],60,"限制画面渲染帧率。\n战斗逻辑始终以每秒 60 帧运行。"],
+				["integer_scale","整数缩放","toggle",[],true,"按整数倍放大，保持像素边缘清晰。\n关闭后可让画面占据更多屏幕空间。"],
+				["show_fps","显示帧率","toggle",[],false,"在游戏画面底部显示当前帧率。"]]
+		1:
+			return [["shake","震屏反馈","toggle",[],true,"重击时轻微晃动画面，增强打击反馈。"],["flash","减少闪光","toggle",[],false,"降低战斗闪光强度。"]]
+		2:
+			var specs: Array=[]
+			for i in 10: specs.append([str(i),KEY_NAMES[i],"key",[],DEFAULT_KEYS[i],"点击右侧按键后，按下新键。\nEsc 取消；重复按键会交换绑定。\n向下滚动可查看全部 10 项操作。"])
+			return specs
+		_:
+			return [["master","主音量","slider",[0,100],80,"控制游戏全部声音。"],["music","音乐音量","slider",[0,100],60,"调整菜单与战斗背景音乐。"],["sfx","音效音量","slider",[0,100],80,"调整打击、招式与菜单音效。"]]
+
+func change_setting(key: String,value) -> void:
+	settings[key]=value
+	if key in ["fullscreen","window_size","vsync","frame_limit","integer_scale"]: apply_display()
+	if key in ["master","music","sfx"]: audio.configure(settings)
+	save_settings()
+
+func settings_help(title: String,description: String) -> void:
+	ui.get_node("SettingTitle").text=title
+	ui.get_node("SettingDescription").text=description
+
+func reset_settings_page() -> void:
+	for spec in setting_specs():
+		if spec[2]=="key": settings.keys[int(spec[0])]=spec[4]
+		elif spec[2]!="info": settings[spec[0]]=spec[4]
+	apply_display();audio.configure(settings);save_settings()
+	show_settings(return_screen,settings_page)
+
+func setting_control(spec: Array, row: Panel) -> Control:
+	var key: String=spec[0]
+	var control: Control
+	if spec[2]=="info":
+		var info=Label.new();info.text=spec[3][0];control=info
+	elif spec[2]=="slider":
+		var slider=HSlider.new();slider.min_value=spec[3][0];slider.max_value=spec[3][1];slider.step=1;slider.value=settings[key]
+		var value=Label.new();value.text=str(int(slider.value));value.position=Vector2(265,5);value.add_theme_font_size_override("font_size",10);row.add_child(value)
+		slider.value_changed.connect(func(v): change_setting(key,int(v));value.text=str(int(v)))
+		var track=StyleBoxFlat.new();track.bg_color=Color("284355");track.set_corner_radius_all(2);track.content_margin_top=2;track.content_margin_bottom=2
+		var fill=track.duplicate();fill.bg_color=Color("22d9ee")
+		slider.add_theme_stylebox_override("slider",track);slider.add_theme_stylebox_override("grabber_area",fill);slider.add_theme_stylebox_override("grabber_area_highlight",fill)
+		var knob=Image.new();knob.load_svg_from_string('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><circle cx="5" cy="5" r="4" fill="#fff3d9" stroke="#22d9ee"/></svg>')
+		for state in ["grabber","grabber_highlight"]: slider.add_theme_icon_override(state,ImageTexture.create_from_image(knob))
+		slider.custom_minimum_size=Vector2(94,25)
+		control=slider
+	elif spec[2]=="toggle":
+		var toggle=CheckButton.new();toggle.layout_direction=Control.LAYOUT_DIRECTION_RTL;toggle.text="开启" if settings[key] else "关闭";toggle.button_pressed=settings[key]
+		for state in ["checked","unchecked"]:
+			var on: bool=state=="checked"
+			var icon=Image.new()
+			icon.load_svg_from_string('<svg xmlns="http://www.w3.org/2000/svg" width="30" height="16"><rect x="1" y="1" width="28" height="14" rx="7" fill="%s" stroke="%s"/><circle cx="%d" cy="8" r="5" fill="#fff3d9"/></svg>' % ["#22d9ee" if on else "#293743","#22d9ee" if on else "#8b9a9f",22 if on else 8])
+			toggle.add_theme_icon_override(state,ImageTexture.create_from_image(icon))
+		toggle.toggled.connect(func(v): change_setting(key,v);toggle.text="开启" if v else "关闭")
+		control=toggle
+	elif spec[2]=="choice":
+		var choice=OptionButton.new()
+		for title in spec[3]: choice.add_item(title)
+		choice.selected=[30,60,120,0].find(settings[key]) if key=="frame_limit" else int(settings[key])
+		choice.disabled=key=="window_size" and settings.fullscreen
+		choice.item_selected.connect(func(index):
+			change_setting(key,[30,60,120,0][index] if key=="frame_limit" else bool(index) if key=="fullscreen" else index)
+			show_settings(return_screen,settings_page),CONNECT_DEFERRED)
+		control=choice
+	else:
+		var binding=Button.new();binding.text=OS.get_keycode_string(settings.keys[int(key)])
+		binding.pressed.connect(func(): rebind=int(key);key_button=binding;binding.text="请按新键…")
+		control=binding
+	control.name="Setting_"+key;control.position=Vector2(168,2);control.size=Vector2(118 if spec[2]!="slider" else 94,25)
+	control.add_theme_font_size_override("font_size",11)
+	var normal=StyleBoxFlat.new();normal.bg_color=Color("071725");normal.border_color=Color("416781");normal.set_border_width_all(1);normal.set_corner_radius_all(1)
+	normal.content_margin_left=7;normal.content_margin_right=7;normal.content_margin_top=0;normal.content_margin_bottom=0
+	var focused=normal.duplicate();focused.border_color=Color("22d9ee")
+	for state in ["normal","hover","pressed"]: control.add_theme_stylebox_override(state,normal)
+	control.add_theme_stylebox_override("focus",focused)
+	row.add_child(control)
+	var active=row.get_theme_stylebox("panel").duplicate();active.bg_color=Color("102b3e");active.border_color=Color("22d9ee");active.border_width_left=3
+	var idle=row.get_theme_stylebox("panel")
+	control.focus_entered.connect(func(): row.add_theme_stylebox_override("panel",active);settings_help(spec[1],spec[5]))
+	control.focus_exited.connect(func(): row.add_theme_stylebox_override("panel",idle))
+	row.mouse_entered.connect(func(): settings_help(spec[1],spec[5]))
+	control.mouse_entered.connect(func(): settings_help(spec[1],spec[5]))
+	return control
+
+func show_settings(origin: String,page: int=0) -> void:
+	return_screen=origin;screen="settings";settings_page=posmod(page,4);clear_ui()
+	var ivory=Color("fff3d9");var orange=Color("ff791f");var cyan=Color("22d9ee")
+	var bold=FontVariation.new();bold.base_font=theme.default_font;bold.variation_embolden=.8
+	shade(Rect2(0,0,640,360),.22)
+	var panel=moves_panel(Rect2(44,18,552,326),Color("061522"),Color("416781"));panel.name="SettingsPanel"
+	panel.get_theme_stylebox("panel").set_corner_radius_all(5)
+	var logo=TextureRect.new();logo.texture=preload("res://assets/ui/kolbb-logo.png");logo.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;logo.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.position=Vector2(60,20);logo.size=Vector2(134,49);logo.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(logo)
+	moves_panel(Rect2(200,34,1,25),ivory,ivory)
+	text_label("设置",Vector2(216,24),24,ivory,94).add_theme_font_override("font",bold)
+	text_label("S E T T I N G S",Vector2(218,55),7,ivory,120)
+	var saved=text_label(settings_save_status,Vector2(484,37),10,cyan,99);saved.name="SettingsSaved"
+	var tabs: Array=[]
+	for i in 4:
+		var tab=button(["▣  视频","▧  图形","▤  按键","♪  声音"][i],Vector2(60+i*131,70),func(): show_settings(origin,i),128)
+		tab.name="SettingsTab"+str(i);tab.add_to_group("settings_tab");tab.alignment=HORIZONTAL_ALIGNMENT_CENTER;tab.add_theme_font_size_override("font_size",12);tab.add_theme_font_override("font",bold);tab.size.y=26
+		var style=StyleBoxFlat.new();style.bg_color=orange if i==settings_page else Color("071725");style.border_color=orange if i==settings_page else Color("416781");style.set_border_width_all(1);style.set_corner_radius_all(1)
+		style.content_margin_left=2;style.content_margin_right=2;style.content_margin_top=0;style.content_margin_bottom=0
+		for state in ["normal","hover","pressed"]: tab.add_theme_stylebox_override(state,style)
+		var focus=style.duplicate();focus.border_color=cyan;tab.add_theme_stylebox_override("focus",focus)
+		for state in ["font_color","font_hover_color","font_focus_color","font_pressed_color"]: tab.add_theme_color_override(state,Color("061522") if i==settings_page else ivory)
+		tabs.append(tab)
+	moves_panel(Rect2(364,107,1,200),Color("294b63"),Color("294b63"))
+	for x in [60,375]: moves_panel(Rect2(x,107,3,14),orange,orange)
+	text_label(["显示设置","画面反馈","操作设置","声音设置"][settings_page],Vector2(70,103),13,ivory,170).add_theme_font_override("font",bold)
+	text_label("画面预览",Vector2(385,103),13,ivory,130).add_theme_font_override("font",bold)
+	moves_panel(Rect2(60,127,294,1),Color("294b63"),Color("294b63"))
+	moves_panel(Rect2(375,126,205,117),Color("071725"),Color("5183a0"))
+	var viewport=SubViewport.new();viewport.name="SettingsPreview";viewport.size=Vector2i(640,360);viewport.disable_3d=true;viewport.render_target_update_mode=SubViewport.UPDATE_ONCE;ui.add_child(viewport)
+	var preview=Arena.new();preview.battle=Battle.new();preview.battle.state.phase="fight";preview.settings=settings;viewport.add_child(preview)
+	var picture=TextureRect.new();picture.texture=viewport.get_texture();picture.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;picture.position=Vector2(377,128);picture.size=Vector2(201,113);picture.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(picture)
+	var pixels: Vector2i=get_window().size if settings.fullscreen else WINDOW_SIZES[settings.window_size]
+	text_label("16:9    %d × %d" % [pixels.x,pixels.y],Vector2(376,243),8,Color("82b8d5"),204)
+	moves_panel(Rect2(375,256,205,1),Color("294b63"),Color("294b63"));moves_panel(Rect2(375,261,3,12),orange,orange)
+	var title=text_label("",Vector2(383,257),12,ivory,195);title.name="SettingTitle";title.add_theme_font_override("font",bold)
+	var help=text_label("",Vector2(378,277),9,ivory,202);help.name="SettingDescription";help.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART;help.add_theme_constant_override("line_spacing",-3)
+	var scroll=ScrollContainer.new();scroll.name="SettingsScroll";scroll.position=Vector2(60,130);scroll.size=Vector2(296,176);scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED;scroll.follow_focus=true;ui.add_child(scroll)
+	var rows=VBoxContainer.new();rows.size_flags_horizontal=Control.SIZE_EXPAND_FILL;rows.add_theme_constant_override("separation",0);scroll.add_child(rows)
+	var controls: Array=[]
+	var specs: Array=setting_specs()
+	for spec in specs:
+		var row=Panel.new();row.custom_minimum_size=Vector2(290,28);rows.add_child(row)
+		var style=StyleBoxFlat.new();style.bg_color=Color.TRANSPARENT;style.border_color=Color("294b63");style.border_width_bottom=1;row.add_theme_stylebox_override("panel",style)
+		var label=Label.new();label.text=spec[1];label.position=Vector2(10,4);label.add_theme_font_size_override("font_size",12);label.mouse_filter=Control.MOUSE_FILTER_IGNORE;row.add_child(label)
+		var control=setting_control(spec,row)
+		if control.focus_mode!=Control.FOCUS_NONE: controls.append(control)
+	settings_help(specs[0][1],specs[0][5])
+	moves_panel(Rect2(60,312,520,1),Color("5183a0"),Color("5183a0"))
+	var back=button("← 返回",Vector2(60,318),func(): return_to(origin),87);back.name="SettingsBack";back.size.y=20;back.add_theme_font_size_override("font_size",12)
+	text_label("←  →  切换分类",Vector2(268,321),10,ivory,130)
+	var reset=button("恢复本页默认",Vector2(477,318),reset_settings_page,103);reset.name="SettingsReset";reset.size.y=20;reset.add_theme_font_size_override("font_size",11)
+	for item in [back,reset]:
+		var normal=StyleBoxFlat.new();normal.bg_color=Color("071725");normal.border_color=Color("82b8d5");normal.set_border_width_all(1);normal.set_corner_radius_all(2);normal.content_margin_left=8;normal.content_margin_right=8
+		var focus=normal.duplicate();focus.border_color=cyan
+		for state in ["normal","hover","pressed"]: item.add_theme_stylebox_override(state,normal)
+		item.add_theme_stylebox_override("focus",focus);item.size.y=20
+	for i in controls.size():
+		controls[i].focus_neighbor_top=controls[i].get_path_to(tabs[settings_page] if i==0 else controls[i-1])
+		controls[i].focus_neighbor_bottom=controls[i].get_path_to(reset if i==controls.size()-1 else controls[i+1])
+	for tab in tabs: tab.focus_neighbor_bottom=tab.get_path_to(controls[0])
+	tabs[settings_page].grab_focus()
+
 func apply_display() -> void:
+	Engine.max_fps=settings.frame_limit
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if settings.vsync else DisplayServer.VSYNC_DISABLED)
+	get_window().content_scale_stretch=Window.CONTENT_SCALE_STRETCH_INTEGER if settings.integer_scale else Window.CONTENT_SCALE_STRETCH_FRACTIONAL
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if settings.fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
 	if not settings.fullscreen:
 		DisplayServer.window_set_size(WINDOW_SIZES[settings.window_size])
@@ -626,12 +764,15 @@ func _input(event: InputEvent) -> void:
 	if not arena: return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if rebind>=0:
-			if event.keycode==KEY_ESCAPE: key_button.text=KEY_NAMES[rebind]+"    "+OS.get_keycode_string(settings.keys[rebind]);rebind=-1
+			if event.keycode==KEY_ESCAPE: key_button.text=OS.get_keycode_string(settings.keys[rebind]);rebind=-1
 			elif not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed and valid_key(event.physical_keycode):
 				var old: int=settings.keys[rebind]
 				var conflict: int=settings.keys.find(event.physical_keycode)
 				if conflict>=0: settings.keys[conflict]=old
-				settings.keys[rebind]=event.physical_keycode;save_settings();show_settings(return_screen)
+				settings.keys[rebind]=event.physical_keycode;save_settings();show_settings(return_screen,settings_page)
+			get_viewport().set_input_as_handled();return
+		if screen=="settings" and event.keycode in [KEY_LEFT,KEY_RIGHT] and not (ui.get_viewport().gui_get_focus_owner() is Range or ui.get_viewport().gui_get_focus_owner() is OptionButton):
+			show_settings.call_deferred(return_screen,posmod(settings_page+(1 if event.keycode==KEY_RIGHT else -1),4))
 			get_viewport().set_input_as_handled();return
 		if screen=="moves" and (event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right")):
 			var direction: int=1 if event.is_action_pressed("ui_right") else -1

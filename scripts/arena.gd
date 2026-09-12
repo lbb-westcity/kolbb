@@ -193,6 +193,7 @@ func _draw() -> void:
 	if message_age>0 and hud:
 		box(Rect2(170,65,300,24),Color(INK,0.92))
 		centered(message,83,14,GOLD)
+	if settings.get("show_fps",false): label("%d FPS" % Engine.get_frames_per_second(),Vector2(296,322),9,CYAN)
 	if debug:
 		for f in battle.state.fighters:
 			for pair in [[battle.hurtbox(f),Color(0,1,0,.35)],[battle.attackbox(f),Color(1,0,0,.5)]]:

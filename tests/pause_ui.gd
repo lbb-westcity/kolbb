@@ -51,7 +51,7 @@ func run() -> void:
 	await capture("local")
 	for pair in [["出招表","moves"],["设置","settings"]]:
 		await activate(pair[0]);assert(main.screen==pair[1] and main.paused)
-		await activate("ESC  返回" if pair[1]=="moves" else "← 返回");assert(main.screen=="pause" and main.paused and main.battle.checksum()==snapshot)
+		await activate("ESC  返回" if pair[1]=="moves" and not mobile else "← 返回");assert(main.screen=="pause" and main.paused and main.battle.checksum()==snapshot)
 	await activate("继续对战")
 	assert(main.screen=="fight" and main.paused and main.resume_left==3)
 	for i in 3:
