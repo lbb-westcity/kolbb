@@ -10,6 +10,9 @@ var battle
 var textures: Dictionary = {}
 var framesets: Dictionary = {}
 var font: Font
+var hud_font: FontVariation
+var round_font: FontVariation
+var hud_logo: Texture2D = preload("res://assets/ui/kolbb-logo.png")
 var bg: Texture2D
 var props: Texture2D
 var animated_props: Texture2D
@@ -18,8 +21,11 @@ var seen: Dictionary = {}
 var time: float = 0
 var trauma: float = 0
 var settings: Dictionary = {}
+var countdown: float = 0
+var resume_fight_left: float = 0
 var hud: bool = false
 var demo: bool = true
+var character_select: bool = false
 var debug: bool = false
 var status: String = ""
 var delayed_hp: Array = [1000.0,1000.0]
@@ -37,6 +43,9 @@ var littleblack_fx: Dictionary = {}
 func _ready() -> void:
 	texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
 	font=load("res://assets/ui/NotoSansCJKsc-Regular.otf")
+	hud_font=FontVariation.new();hud_font.base_font=font;hud_font.variation_embolden=1.0
+	round_font=FontVariation.new();round_font.base_font=load("res://assets/ui/Bungee-Regular.ttf")
+	round_font.variation_transform=Transform2D(Vector2(1,0.22),Vector2(0,1),Vector2.ZERO)
 	bg=load("res://assets/stage/office.png")
 	if ResourceLoader.exists("res://assets/props/props.png"): props=load("res://assets/props/props.png")
 	if ResourceLoader.exists("res://assets/props/animated.png"): animated_props=load("res://assets/props/animated.png")
@@ -76,9 +85,19 @@ func present(events: Array, audio) -> void:
 			"projectile": sound=["poop","coin","basketball"][battle.state.fighters[e.slot].char]
 		if e.kind=="victory": audio.play_music("victory")
 		else: audio.sound(sound,1.0+(int(e.get("slot",0))*0.025))
-		if e.kind in ["hit","block","pickup","clash","land","max","summon","slam","whip","break","stock"]:
+		if e.kind in ["hit","block","pickup","clash","land","max","summon","slam","whip","break","stock","super","projectile","papers"]:
 			var effect: Dictionary=e.duplicate()
-			effect.life=0.55 if e.kind in ["pickup","stock"] else 0.28
+			if e.slot>=0:
+				var f: Dictionary=battle.state.fighters[e.slot]
+				effect.char=f.char;effect.face=f.face
+				effect.move=e.get("move",f.move)
+				if e.kind=="projectile":
+					effect.x+=f.face*Battle.PROJECTILE_OFFSET[f.char]
+					effect.y=f.y/256.0-Battle.PROJECTILE_HEIGHT[f.char]
+				elif e.kind in ["slam","whip"] and not battle.state.cinema.is_empty():
+					effect.x=clampf(f.x/256.0+f.face*42,120,520)
+					effect.y=222 if battle.state.cinema.kind=="grab" else 210
+			effect.life=0.55 if e.kind in ["pickup","stock","summon","super","slam"] else 0.32 if e.kind=="papers" else 0.28
 			if not settings.get("shake",true) and e.kind in ["hit","block","clash"]: effect.life+=2.0/60.0
 			effect.total=effect.life
 			fx.append(effect)
@@ -95,7 +114,9 @@ func present(events: Array, audio) -> void:
 			if battle.state.frame-seen[key]>240: seen.erase(key)
 
 func animate(dt: float, paused: bool) -> void:
+	queue_redraw()
 	if paused: return
+	resume_fight_left=maxf(0,resume_fight_left-dt)
 	time+=dt
 	trauma=maxf(0,trauma-dt*4)
 	message_age=maxf(0,message_age-dt)
@@ -107,7 +128,6 @@ func animate(dt: float, paused: bool) -> void:
 			var hp: float=battle.state.fighters[i].hp
 			if hp>delayed_hp[i]: delayed_hp[i]=hp
 			if damage_wait[i]==0: delayed_hp[i]=move_toward(delayed_hp[i],hp,dt*3500)
-	queue_redraw()
 
 func label(text: String, p: Vector2, size: int = 12, color: Color = IVORY, width: float = -1) -> void:
 	draw_string(font,p+Vector2(1,1),text,HORIZONTAL_ALIGNMENT_LEFT,width,size,Color(0.02,0.04,0.07,0.9))
@@ -130,6 +150,14 @@ func _draw() -> void:
 	world_offset=offset
 	draw_set_transform(offset)
 	draw_texture_rect(bg,Rect2(0,0,640,360),false)
+	if character_select:
+		for i in 2:
+			var p=Vector2(224+i*192,232)
+			draw_set_transform(p,0,Vector2(1,.16))
+			draw_circle(Vector2.ZERO,30,Color(0,0,0,.4))
+			draw_set_transform(Vector2.ZERO)
+			draw_fighter(battle.state.fighters[i],p)
+		return
 	# Low-frequency office lights; never consume the battle RNG.
 	var phase: int=int(time*60)
 	if phase%180<60: box(Rect2(194,160,20,2),Color(0.35,0.8,0.9,0.17))
@@ -145,12 +173,16 @@ func _draw() -> void:
 		var action_age: int=maxi(0,f.age-1)
 		if f.move=="P1-S3" and action_age<28:
 			var x: float=f.target_x/256.0
-			draw_arc(Vector2(x,292),56,0,TAU,32,Color(CYAN,0.6),1)
+			draw_set_transform(offset+Vector2(x,292),0,Vector2(1,.16))
+			draw_arc(Vector2.ZERO,56,0,TAU,32,Color(CYAN,0.6),2)
+			draw_arc(Vector2.ZERO,56*(1-action_age/28.0),0,TAU,24,Color(GOLD,.7),2)
+			draw_set_transform(offset)
 			box(Rect2(x-56,289,112,2),Color(CYAN,0.25))
 			label("!",Vector2(x-3,281),12,GOLD)
 			if action_age>=24: draw_animated_prop(1 if action_age>=26 else 0,Vector2(x,292-(28-action_age)*38),Vector2(256,256))
 	for e in battle.state.entities: draw_entity(e)
 	if battle.state.cinema.is_empty():
+		for f in battle.state.fighters: draw_skill_fx(f)
 		for f in battle.state.fighters: draw_fighter(f)
 	else: draw_cinema()
 	draw_set_transform(offset)
@@ -244,7 +276,7 @@ func animation(f: Dictionary) -> Array:
 	if battle.state.phase in ["result","done"] and f.slot==battle.state.winner: group="performance";frame=6+mini(5,(180-battle.state.phase_time)/10)
 	return [group,clampi(frame,0,23)]
 
-func draw_fighter(f: Dictionary,override_pos: Vector2=Vector2.INF,override_frame: int=-1,shadow: bool=false,override_anim: Array=[],render_scale: float=1.0) -> void:
+func draw_fighter(f: Dictionary,override_pos: Vector2=Vector2.INF,override_frame: int=-1,shadow: bool=false,override_anim: Array=[],render_scale: float=1.0,tint: Color=Color.WHITE) -> void:
 	var anim: Array=animation(f)
 	if override_frame>=0: anim=["core",override_frame]
 	if not override_anim.is_empty(): anim=override_anim
@@ -258,13 +290,13 @@ func draw_fighter(f: Dictionary,override_pos: Vector2=Vector2.INF,override_frame
 	if f.mode=="max_start": squash=Vector2(1.05,.95)
 	if f.mode=="hurt" and f.age<=4: squash=Vector2(.93,1.04)
 	squash*=render_scale
-	var color: Color=Color(0.06,0.09,0.14) if shadow else Color.WHITE
+	var color: Color=(Color(0.06,0.09,0.14) if shadow else Color.WHITE) if tint==Color.WHITE else tint
 	if battle.state.fighters[0].char==battle.state.fighters[1].char and f.slot==1 and not shadow:
 		var alt_key: String=key+"_alt"
 		if textures.has(alt_key): tex=textures[alt_key]
 	var rot: float=0
 	draw_set_transform(p+world_offset,rot,Vector2(f.face,1)*squash)
-	if f.max>0 and int(time*10)%2==0:
+	if not shadow and f.max>0 and (settings.get("flash",false) or int(time*10)%2==0):
 		draw_arc(Vector2(0,-2),32,PI,TAU,16,GOLD,1)
 		draw_line(Vector2(-25,-105),Vector2(-25,-85),GOLD,1)
 	var sequence: String=anim[0]+("_alt" if battle.state.fighters[0].char==battle.state.fighters[1].char and f.slot==1 and not shadow else "")
@@ -281,9 +313,10 @@ func draw_fighter(f: Dictionary,override_pos: Vector2=Vector2.INF,override_frame
 				draw_set_transform(p+world_offset,rot,squash)
 				var frame_tex: AtlasTexture=framesets[who].get_frame_texture(sequence,frame)
 				draw_texture_rect_region(tex,Rect2(anchor.x-r.end.x,r.position.y-anchor.y,r.size.x,r.size.y),Rect2(r.position+frame_tex.region.position,r.size))
-	draw_set_transform(Vector2.ZERO)
+	draw_set_transform(world_offset)
+	if shadow: return
 	if not shadow:
-		marker(p+Vector2(0,8),f.slot,CYAN if f.slot==0 else ORANGE)
+		if not character_select: marker(p+Vector2(0,8),f.slot,CYAN if f.slot==0 else ORANGE)
 		if f.stain>0: box(Rect2(p+Vector2(f.face*4-5,-132),Vector2(10,6)),Color("79442b"))
 	if f.char==2 and f.mode=="attack":
 		var age: int=maxi(0,f.age-1)
@@ -302,19 +335,32 @@ func draw_prop(index: int,p: Vector2,size: Vector2,tint: Color=Color.WHITE) -> v
 	if props:
 		draw_texture_rect_region(props,Rect2(p.x-size.x/2,p.y-size.y*244/256,size.x,size.y),Rect2((index%4)*256,(index/4)*256,256,256),tint)
 
-func draw_animated_prop(index: int,p: Vector2,size: Vector2) -> void:
-	if animated_props: draw_texture_rect_region(animated_props,Rect2(p.x-size.x/2,p.y-size.y*244/256,size.x,size.y),Rect2((index%6)*256,(index/6)*256,256,256))
+func draw_animated_prop(index: int,p: Vector2,size: Vector2,tint: Color=Color.WHITE) -> void:
+	if animated_props: draw_texture_rect_region(animated_props,Rect2(p.x-size.x/2,p.y-size.y*244/256,size.x,size.y),Rect2((index%6)*256,(index/6)*256,256,256),tint)
 
-func draw_littleblack_fx(id: String, frame: int, p: Vector2, size: Vector2, face: int=1) -> void:
+func draw_littleblack_fx(id: String, frame: int, p: Vector2, size: Vector2, face: int=1,tint: Color=Color.WHITE) -> void:
 	if not littleblack_fx.has(id): return
 	var tex: Texture2D=littleblack_fx[id]
 	var cell: Vector2=Vector2(tex.get_width()/3,tex.get_height()/2)
 	draw_set_transform(p+world_offset,0,Vector2(face,1))
-	draw_texture_rect_region(tex,Rect2(-size/2,size),Rect2(Vector2(frame%3,frame/3)*cell,cell))
+	draw_texture_rect_region(tex,Rect2(-size/2,size),Rect2(Vector2(frame%3,frame/3)*cell,cell),tint)
 	draw_set_transform(world_offset)
 
 func draw_entity(e: Dictionary) -> void:
 	var p: Vector2=Vector2(e.x/256.0,e.y/256.0)
+	if e.kind=="projectile":
+		var color: Color=[Color("b98c54"),GOLD,ORANGE][e.char]
+		for i in range(3,0,-1):
+			var lag: int=mini(e.age,i*2)
+			if lag==0: continue
+			var q: Vector2=p-Vector2(e.vx/256.0*lag,0)
+			var tint: Color=Color(color,.24-i*.05)
+			if e.char==2: draw_littleblack_fx("trousers" if e.move=="P3-S4" else "ball",(maxi(0,e.age-lag)/3)%6,q,Vector2(34,34) if e.move=="P3-S4" else Vector2(24,24),e.face,tint)
+			else: draw_animated_prop(18+(maxi(0,e.age-lag)/4)%4 if e.char==0 else 22+(maxi(0,e.age-lag)/4)%2,q+Vector2(0,10),Vector2(22,22),tint)
+		for i in 5:
+			var tail: float=fmod(e.age*2+i*11,42)
+			var q: Vector2=p+Vector2(-e.face*(10+tail),(i%3-1)*(4+tail*.12))
+			box(Rect2(q,Vector2(4 if e.char==1 else 2,2)),Color(color,(1-tail/42)*.65))
 	if e.kind=="projectile" and e.char==2:
 		draw_littleblack_fx("trousers" if e.move=="P3-S4" else "ball",(e.age/3)%6,p,Vector2(34,34) if e.move=="P3-S4" else Vector2(24,24),e.face)
 	elif e.kind=="projectile":
@@ -327,6 +373,12 @@ func draw_entity(e: Dictionary) -> void:
 		draw_prop(0 if e.kind=="burger" else 1,p,Vector2(28,24),Color(1,1,1,.5 if e.life<=30 and settings.get("flash",false) else 1))
 		var ready: bool=e.age>=e.travel+(30 if e.kind=="burger" else 12)
 		var color: Color=CYAN if e.owner==0 else ORANGE
+		if ready:
+			for i in 3:
+				var rise: float=fmod(e.age*.35+i*10,30)
+				var q: Vector2=p+Vector2((i-1)*11,-8-rise)
+				draw_line(q-Vector2(2,0),q+Vector2(2,0),Color(GOLD,(1-rise/30)*.6),1)
+				draw_line(q-Vector2(0,2),q+Vector2(0,2),Color(GOLD,(1-rise/30)*.6),1)
 		if ready: marker(p+Vector2(0,-29),e.owner,color)
 		elif e.owner==0: draw_polyline(PackedVector2Array([p+Vector2(0,-33),p+Vector2(4,-29),p+Vector2(0,-25),p+Vector2(-4,-29),p+Vector2(0,-33)]),color,1)
 		else: draw_arc(p+Vector2(0,-29),4,0,TAU,12,color,1)
@@ -341,7 +393,78 @@ func draw_entity(e: Dictionary) -> void:
 		for i in 18:
 			var x: float=e.x/256.0+e.face*(40+(i*31+e.age*15)%530)
 			var y: float=275-((i*19)%100)
-			if x>16 and x<624: draw_prop(10,Vector2(x,y),Vector2(18,23))
+			if x>16 and x<624:
+				draw_line(Vector2(x-e.face*24,y-10),Vector2(x-e.face*9,y-10),Color(IVORY,.35),1)
+				draw_prop(10,Vector2(x,y),Vector2(18,23))
+
+func skill_color(character: int) -> Color:
+	return [CYAN,GOLD,ORANGE][clampi(character,0,2)]
+
+func draw_burst(p: Vector2,color: Color,progress: float,count: int=10,radius: float=40,gravity: float=18) -> void:
+	# Analytic particles: no nodes, saved simulation state, or battle RNG consumption.
+	var fade: float=(1-progress)*(0.55 if settings.get("flash",false) else 1.0)
+	var spread: float=1-pow(1-progress,3)
+	for i in count:
+		var v: Vector2=Vector2.from_angle(i*2.39996+.3)
+		var q: Vector2=p+v*(6+radius*spread*(.55+(i%4)*.15))+Vector2(0,gravity*progress*progress)
+		draw_line(q-v*(3+5*(1-progress)),q,Color(color,fade),2)
+		if i%3==0: box(Rect2(q+Vector2(2,-2),Vector2(2,2)),Color(IVORY,fade*.7))
+
+func draw_skill_fx(f: Dictionary) -> void:
+	if f.mode!="attack" or not f.move.begins_with("P"): return
+	var age: int=maxi(0,f.age-1)
+	var m: Dictionary=battle.moves[f.move]
+	var p: Vector2=Vector2(f.x/256.0,f.y/256.0)
+	var color: Color=skill_color(f.char)
+	var opacity: float=.5 if settings.get("flash",false) else .85
+	# Short pose echoes follow the rush/finisher windows; interruptions remove them immediately.
+	if (m.kind=="shoulder" and age>=12 and age<24) or (m.kind=="dance" and age>=42 and age<50) or (m.kind=="room" and age>=8 and age<18):
+		for i in range(3,0,-1):
+			draw_fighter(f,p-Vector2(f.face*i*10,0),-1,true,[],1,Color(color,opacity*(.19-i*.04)))
+	draw_set_transform(p+world_offset,0,Vector2(f.face,1))
+	if age<m.s:
+		var charge: float=age/float(m.s)
+		var hand: Vector2=Vector2(28,-94)
+		for i in 5:
+			var v: Vector2=Vector2.from_angle(i*TAU/5+charge*1.4)
+			var q: Vector2=hand+v*(30-22*charge)
+			draw_line(q,q-v*(3+charge*4),Color(color,opacity*charge),1)
+		draw_arc(hand,5+charge*7,-1.8+charge,1.2+charge,12,Color(color,charge*opacity),1)
+	var strike: int=m.s
+	if m.kind=="talk" and age>=20: strike=20
+	if m.kind=="trousers" and age>=30: strike=30
+	if m.kind=="dance" and age>=18: strike=18+mini(3,(age-18)/8)*8
+	var t: float=(age-strike)/10.0
+	if t>=0 and t<1:
+		var fade: float=(1-t)*opacity
+		match m.kind:
+			"shoulder","dance","trousers","talk":
+				var reach: float=100 if m.kind=="dance" and strike==42 else 84 if m.kind=="trousers" else 72
+				if m.kind!="trousers" or strike==30:
+					for i in 3:
+						draw_arc(Vector2(16,-78),reach-15+i*5,-1.0+t*.7,1.0+t*.7,18,Color(IVORY if i==2 else color,fade*(.7 if i==2 else .4)),2 if i==2 else 3)
+					for i in 5:
+						var y: float=-112+i*20
+						draw_line(Vector2(-42-t*22,y),Vector2(12+t*24,y-4),Color(color,fade*.6),1)
+				else: draw_burst(Vector2(32,-88),Color("a6b9c8"),t,8,25,12)
+				if m.kind=="dance":
+					for i in 3:
+						var q: Vector2=Vector2(-24+i*48,-145-t*20)
+						draw_circle(q,2,Color(color,fade))
+						draw_line(q+Vector2(2,0),q+Vector2(2,-10),Color(color,fade),1)
+			"sonic":
+				for i in 4:
+					var q: Vector2=Vector2(36+i*8,-82-i*25-t*26)
+					draw_arc(q,16+i*6+t*12,PI*1.05,TAU-.15,18,Color(CYAN,fade*(1-i*.15)),2)
+			"burger":
+				draw_burst(Vector2(30,-96),GOLD,t,8,24,30)
+			"grab","room":
+				draw_arc(Vector2(40,-88),18+t*24,-1.8,1.8,16,Color(color,fade),2)
+	if m.kind=="dance" and age>=18 and age<54:
+		var beat: float=fmod(age-18,8)/8.0
+		draw_set_transform(p+world_offset,0,Vector2(1,.2))
+		draw_arc(Vector2.ZERO,30+beat*50,0,TAU,32,Color(color,(1-beat)*opacity*.65),2)
+	draw_set_transform(world_offset)
 
 func draw_cinema() -> void:
 	var c: Dictionary=battle.state.cinema.duplicate()
@@ -374,73 +497,202 @@ func draw_cinema() -> void:
 func draw_effect(e: Dictionary) -> void:
 	var p: Vector2=Vector2(e.x,e.y)
 	var k: float=e.life/e.total
-	var color: Color=CYAN if e.slot==0 else ORANGE
+	var color: Color=skill_color(e.get("char",0))
+	if e.kind=="slam" and e.get("move","")=="P2-S3": color=RED
+	var opacity: float=.55 if settings.get("flash",false) else 1.0
 	if e.kind=="block":
-		draw_arc(p,18+(1-k)*8,-PI*.6,PI*.6,12,Color(CYAN,k),2)
+		var angle: float=0 if e.get("face",1)==1 else PI
+		for i in 2: draw_arc(p,18+(1-k)*12+i*5,angle-PI*.6,angle+PI*.6,16,Color(CYAN,k*opacity*(1-i*.5)),2-i)
+		draw_burst(p,CYAN,1-k,5,24,6)
 	elif e.kind in ["hit","slam","whip","clash"]:
-		var radius: float=maxf(1,(24 if e.get("heavy",false) else 15)*k)
+		var heavy: bool=e.get("heavy",false) or e.kind in ["slam","whip","clash"]
+		var radius: float=maxf(1,(28 if heavy else 17)*k)
 		var points=PackedVector2Array()
 		for i in 16:
 			var r: float=radius if i%2==0 else radius*.32
 			points.append(p+Vector2(cos(i*TAU/16),sin(i*TAU/16))*r)
-		draw_colored_polygon(points,Color(IVORY,k))
-		for i in 7:
-			var v=Vector2(cos(i*2.4),sin(i*2.4))
-			draw_line(p+v*(12+(1-k)*20),p+v*(17+(1-k)*24),Color(color,k),2)
+		draw_colored_polygon(points,Color(color,k*opacity*.7))
+		for i in points.size(): points[i]=p+(points[i]-p)*.62
+		draw_colored_polygon(points,Color(IVORY,k*opacity))
+		draw_arc(p,9+(1-k)*(42 if heavy else 26),0,TAU,24,Color(color,k*opacity*.5),1)
+		draw_burst(p,color,1-k,14 if heavy else 8,52 if heavy else 32)
+		if e.kind=="whip":
+			var face: int=e.get("face",1)
+			draw_polyline(PackedVector2Array([p+Vector2(-face*43,16),p+Vector2(-face*28,-13),p+Vector2(-face*13,-18),p]),Color(GOLD,k*opacity),2)
+		elif e.kind=="slam" and e.get("move","")=="P2-S3":
+			var stamp: float=22+(1-k)*18
+			draw_rect(Rect2(p-Vector2(stamp,stamp*.65),Vector2(stamp*2,stamp*1.3)),Color(RED,k*opacity),false,2)
+			for i in 6:
+				var q: Vector2=p+Vector2((i-2.5)*(10+(1-k)*12),-sin((1-k)*PI)*28+(i%2)*18)
+				box(Rect2(q,Vector2(5,7)),Color(IVORY,k*.65))
+		if e.get("move","")=="P1-S1":
+			for i in 6:
+				var q: Vector2=p+Vector2.from_angle(i*2.4)*(8+(1-k)*23)+Vector2(0,(1-k)*14)
+				draw_circle(q,1+k*3,Color("936338",k))
+		elif e.get("move","")=="P2-S1":
+			for i in 4:
+				var q: Vector2=p+Vector2((i-1.5)*(12+(1-k)*12),-12-(1-k)*28)
+				draw_arc(q,3,0,TAU,8,Color(GOLD,k*opacity),1)
+		elif e.get("move","")=="P3-S3":
+			for i in 3: draw_arc(p+Vector2(0,-(1-k)*i*14),16+i*9+(1-k)*12,PI,TAU,16,Color(CYAN,k*opacity*.6),1)
 		if e.get("damage",0)>0: label(str(e.damage),p+Vector2(14,-20-(1-k)*15),12,Color(IVORY,k))
-	elif e.kind=="pickup": label(e.text,p+Vector2(-15,-(1-k)*15),16,Color("79c878") if e.damage<0 else RED)
+	elif e.kind=="super":
+		var radius: float=18+pow(1-k,.6)*80
+		draw_arc(p,radius,-PI*.9,PI*.8,36,Color(color,k*opacity*.6),2)
+		draw_arc(p,radius*.8,PI*.15,PI*1.5,28,Color(IVORY,k*opacity*.4),1)
+		draw_burst(p,color,1-k,16,95,0)
+	elif e.kind=="projectile":
+		draw_arc(p,8+(1-k)*20,0,TAU,20,Color(color,k*opacity*.7),2)
+		draw_burst(p,color,1-k,7,26,4)
+	elif e.kind=="summon" or e.kind=="land":
+		var large: bool=e.kind=="summon"
+		draw_set_transform(world_offset+Vector2(e.x,292),0,Vector2(1,.22))
+		for i in 2: draw_arc(Vector2.ZERO,(18+(1-k)*(95 if large else 26))*(1-i*.25),0,TAU,32,Color(GOLD if large else IVORY,k*opacity*.6),2)
+		draw_set_transform(world_offset)
+		for i in (12 if large else 5):
+			var side: int=1 if i%2==0 else -1
+			var q: Vector2=Vector2(e.x+side*(12+(1-k)*(22+i*6)),289-sin((1-k)*PI)*(5+i%4*5))
+			box(Rect2(q,Vector2(4+k*7,2+k*3)),Color(IVORY,k*.45))
+		if large: draw_burst(Vector2(e.x,278),GOLD,1-k,14,65,12)
+	elif e.kind=="papers":
+		# Detached scraps outlive each four-tick wave, without obscuring the fighters.
+		for i in 9:
+			var q: Vector2=Vector2(e.x+e.face*(40+i*49+(1-k)*70),176+(i*23)%95+(1-k)*22)
+			if q.x<20 or q.x>620: continue
+			draw_set_transform(q+world_offset,e.face*((1-k)*2+i)*.35)
+			box(Rect2(-4,-5,8,10),Color(IVORY,k*.5))
+			draw_line(Vector2(-2,-2),Vector2(2,-2),Color(INK,k*.5),1)
+		draw_set_transform(world_offset)
+	elif e.kind=="pickup":
+		var heal: Color=Color("79c878") if e.damage<0 else RED
+		draw_burst(p,heal,1-k,8,30,-25)
+		label(e.text,p+Vector2(-15,-(1-k)*15),16,heal)
 	elif e.kind in ["max","stock"]:
 		draw_arc(Vector2(e.x,289),24+(1-k)*30,PI,TAU,20,Color(GOLD,k),2)
 		if e.kind=="max": label("MAX",Vector2(e.x-20,210-(1-k)*20),18,GOLD)
 	else:
 		for i in 5: box(Rect2(e.x-22+i*10,290-(1-k)*10,5*k,3*k),Color(IVORY,k*.4))
 
+func hud_panel(points: PackedVector2Array, fill: Color, edge: Color, thickness: float=1) -> void:
+	draw_colored_polygon(points,fill)
+	points.append(points[0])
+	draw_polyline(points,edge,thickness)
+
+func hud_text(text: String, p: Vector2, size: int, color: Color=IVORY, align: HorizontalAlignment=HORIZONTAL_ALIGNMENT_LEFT, width: float=-1) -> void:
+	draw_string_outline(hud_font,p,text,align,width,size,2,Color("071321"))
+	draw_string(hud_font,p,text,align,width,size,color)
+
 func draw_hud() -> void:
-	box(Rect2(0,0,640,57),Color(INK,.96))
-	box(Rect2(0,320,640,40),Color(INK,.95))
+	var s: Dictionary=battle.state
 	for i in 2:
-		var f: Dictionary=battle.state.fighters[i]
-		var color: Color=CYAN if i==0 else ORANGE
-		var x: int=50 if i==0 else 362
-		var headx: int=8 if i==0 else 596
-		box(Rect2(headx,8,36,36),Color("293d50"),color)
+		var f: Dictionary=s.fighters[i]
+		var color: Color=Color("32e1ef") if i==0 else Color("ff802d")
+		# Mirror the frame geometry; keep portraits and text facing the reader.
+		draw_set_transform(Vector2.ZERO if i==0 else Vector2(640,0),0,Vector2(1 if i==0 else -1,1))
+		hud_panel(PackedVector2Array([Vector2(23,16),Vector2(64,16),Vector2(68,20),Vector2(68,51),Vector2(27,51),Vector2(23,47)]),Color("071321"),color,1.5)
+		hud_panel(PackedVector2Array([Vector2(73,32),Vector2(268,32),Vector2(277,47),Vector2(74,47),Vector2(71,43),Vector2(71,35)]),Color("071321"),color,1.5)
+		for pair in [[delayed_hp[i],RED],[f.hp,Color("fff3d2")]]:
+			var end: float=75+196*clampf(float(pair[0])/1000,0,1)
+			if end>75:
+				draw_colored_polygon(PackedVector2Array([Vector2(75,35),Vector2(minf(end,265),35),Vector2(end,44),Vector2(75,44)]),pair[1])
+		for tick in [140,205]: draw_line(Vector2(tick,43),Vector2(tick,45),Color("071321"),1)
+		for j in 2:
+			var p: Vector2=Vector2(37+j*14,60)
+			hud_panel(PackedVector2Array([p+Vector2(0,-4),p+Vector2(4,0),p+Vector2(0,4),p+Vector2(-4,0)]),color if s.wins[i]>j else Color("071321"),IVORY)
+		draw_set_transform(Vector2.ZERO)
+		var headx: int=25 if i==0 else 574
 		var tex: Texture2D=portrait[f.char]
-		if tex: draw_texture_rect(tex,Rect2(headx,8,36,36),false)
-		label(Battle.NAMES[f.char],Vector2(x,19),12,IVORY)
-		label("1P" if i==0 else "2P",Vector2(x+201,18),10,color)
-		box(Rect2(x,24,228,12),Color("172735"),Color("8b9a9f"))
-		var w: float=226*f.hp/1000.0
-		var trail: float=226*delayed_hp[i]/1000.0
-		box(Rect2(x+1 if i==0 else x+227-trail,25,trail,10),RED)
-		box(Rect2(x+1 if i==0 else x+227-w,25,w,10),IVORY)
-		for j in 2: marker(Vector2(x+6+j*13 if i==0 else x+222-j*13,45),i,GOLD if battle.state.wins[i]>j else Color("46616a"))
-		var ex: int=16 if i==0 else 408
-		label("POW",Vector2(ex,334),10,color)
+		if tex: draw_texture_rect(tex,Rect2(headx,18,41,31),false)
+		hud_text(Battle.NAMES[f.char],Vector2(75 if i==0 else 476,28),12,IVORY,HORIZONTAL_ALIGNMENT_LEFT if i==0 else HORIZONTAL_ALIGNMENT_RIGHT,90)
+		hud_text("1P" if i==0 else status.replace(" / "," · ") if not online and status!="" else "2P",Vector2(172 if i==0 else 390,28),9,color,HORIZONTAL_ALIGNMENT_LEFT if i==0 else HORIZONTAL_ALIGNMENT_RIGHT,80)
+		var ex: int=52 if i==0 else 472
+		hud_text("POW",Vector2(ex-26,334),9,color)
 		for j in 3:
 			var amount: float=clampf(f.energy-j*100,0,100)/100.0
-			box(Rect2(ex+j*73,339,70,12),Color("172735"),GOLD if amount==1 else Color("46616a"))
-			box(Rect2(ex+j*73+1,340,68*amount,10),RED if f.flash_meter>0 else GOLD if amount==1 else color)
+			var x: int=ex+j*45
+			hud_panel(PackedVector2Array([Vector2(x,333),Vector2(x+41,333),Vector2(x+42,334),Vector2(x+42,343),Vector2(x+1,343),Vector2(x,342)]),Color("071321"),color)
+			if amount>0: box(Rect2(x+2,335,38*amount,6),RED if f.flash_meter>0 else GOLD if amount==1 else color)
 		if f.max>0:
-			label("MAX",Vector2(ex+48,333),10,GOLD)
-			box(Rect2(ex+76,325,140,5),Color("293d50"))
-			box(Rect2(ex+76,325,140.0*f.max/f.max_total,5),GOLD)
-		var target: Dictionary=battle.state.fighters[1-i]
+			hud_text("MAX",Vector2(ex,327),9,GOLD)
+			box(Rect2(ex+28,321,103,4),Color("172735"))
+			box(Rect2(ex+28,321,103.0*f.max/f.max_total,4),GOLD)
+		var target: Dictionary=s.fighters[1-i]
 		if target.combo_age>0 and combo_hits[1-i]>=2:
-			label("%d HITS" % combo_hits[1-i],Vector2(16 if i==0 else 536,110),18,color)
-			label("%d DAMAGE" % target.combo_damage,Vector2(16 if i==0 else 536,125),10,IVORY)
-	centered("%02d" % ceili(battle.state.time/60.0),34,28,RED if battle.state.time<=1200 else IVORY)
-	if status!="": centered(status,49,10,CYAN)
-	centered("KOLBB",348,12,Color("8b9a9f"))
+			hud_text("%d HITS" % combo_hits[1-i],Vector2(25 if i==0 else 519,104),18,color)
+			hud_text("%d DAMAGE" % target.combo_damage,Vector2(25 if i==0 else 519,117),9)
+	hud_panel(PackedVector2Array([Vector2(289,18),Vector2(351,18),Vector2(361,36),Vector2(351,62),Vector2(289,62),Vector2(279,36)]),Color("071321"),Color("436579"),2)
+	draw_polyline(PackedVector2Array([Vector2(286,23),Vector2(279,36),Vector2(289,56)]),Color("32e1ef"),2)
+	draw_polyline(PackedVector2Array([Vector2(354,23),Vector2(361,36),Vector2(351,56)]),Color("ff802d"),2)
+	draw_string(round_font,Vector2(280,47),"%02d" % ceili(s.time/60.0),HORIZONTAL_ALIGNMENT_CENTER,80,32,RED if s.time<=1200 else Color("fff3d2"))
+	hud_text("ROUND %d" % s.round,Vector2(280,58),8,IVORY,HORIZONTAL_ALIGNMENT_CENTER,80)
+	if online and status!="": hud_text(status,Vector2(367,60),8,CYAN)
+	draw_texture_rect(hud_logo,Rect2(296,329,48,19),false)
+
+func arcade_word(text: String, p: Vector2, size: int, color: Color) -> void:
+	draw_string_outline(round_font,p+Vector2(0,4),text,HORIZONTAL_ALIGNMENT_LEFT,-1,size,5,Color("071321"))
+	draw_string(round_font,p+Vector2(0,4),text,HORIZONTAL_ALIGNMENT_LEFT,-1,size,Color("ff802d"))
+	draw_string_outline(round_font,p,text,HORIZONTAL_ALIGNMENT_LEFT,-1,size,3,Color("071321"))
+	draw_string(round_font,p,text,HORIZONTAL_ALIGNMENT_LEFT,-1,size,color)
+
+func draw_countdown() -> void:
+	var center: Vector2=Vector2(320,205)
+	draw_circle(center,58,Color("071321",.84))
+	for i in 4:
+		var angle: float=PI/4+i*PI/2
+		draw_arc(center,62,angle-.48,angle+.48,12,Color("071321"),8)
+		draw_arc(center,62,angle-.30,angle+.30,10,Color("ff802d"),4)
+	var text: String=str(ceili(countdown))
+	var width: float=round_font.get_string_size(text,HORIZONTAL_ALIGNMENT_LEFT,-1,104).x
+	arcade_word(text,Vector2((640-width)/2-7,240),104,Color("fff3d2"))
+	hud_text("准备开打",Vector2(265,272),16,IVORY,HORIZONTAL_ALIGNMENT_CENTER,110)
+
+func draw_fight_callout() -> void:
+	draw_set_transform(Vector2(320,208),-.08)
+	var width: float=round_font.get_string_size("FIGHT!",HORIZONTAL_ALIGNMENT_LEFT,-1,68).x
+	var p: Vector2=Vector2(-width/2-6,17)
+	draw_colored_polygon(PackedVector2Array([Vector2(-52,25),Vector2(55,25),Vector2(48,47),Vector2(-59,47)]),Color("071321"))
+	for side in [-1,1]:
+		draw_line(Vector2(side*58,-53),Vector2(side*(width/2+4),-53),Color("ff802d"),3)
+		draw_line(Vector2(side*57,35),Vector2(side*(width/2-8),35),Color("ff802d"),3)
+	draw_string_outline(round_font,p+Vector2(0,4),"FIGHT!",HORIZONTAL_ALIGNMENT_LEFT,-1,68,6,Color("071321"))
+	draw_string_outline(round_font,p+Vector2(0,3),"FIGHT!",HORIZONTAL_ALIGNMENT_LEFT,-1,68,2,IVORY)
+	draw_string_outline(round_font,p,"FIGHT!",HORIZONTAL_ALIGNMENT_LEFT,-1,68,3,Color("071321"))
+	draw_string(round_font,p,"FIGHT!",HORIZONTAL_ALIGNMENT_LEFT,-1,68,Color("ff802d"))
+	hud_text("开打！",Vector2(-45,41),16,IVORY,HORIZONTAL_ALIGNMENT_CENTER,90)
+	draw_set_transform(Vector2.ZERO)
 
 func draw_round_text() -> void:
+	if countdown>0:
+		draw_countdown()
+		return
+	if resume_fight_left>0 or battle.state.phase=="ready":
+		draw_fight_callout()
+		return
 	var s: Dictionary=battle.state
 	var text: String=""
-	if s.phase=="intro": text="下班之前，分个胜负。"
-	elif s.phase=="round": text="ROUND %d" % s.round
-	elif s.phase=="ready": text="FIGHT!"
+	var subtitle: String=""
+	if s.phase=="intro":
+		centered("下班之前，分个胜负。",188,20)
+		return
+	elif s.phase=="round":
+		text="ROUND %d" % s.round
+		subtitle="第 %s 回 合" % (["一","二","三","四","五"][s.round-1] if s.round>=1 and s.round<=5 else str(s.round))
 	elif s.phase=="result":
-		if online and s.frame-1>confirmed: text="确认对局结果…"
-		else: text="DRAW" if s.winner<0 else "K.O." if s.time>0 else "TIME OVER"
-	if text!="":
-		box(Rect2(0,142,640,63),Color(INK,.8))
-		centered(text,186,30 if s.phase!="intro" else 20,GOLD if s.phase=="ready" else IVORY)
+		if online and s.frame-1>confirmed:
+			centered("确认对局结果…",188,20)
+			return
+		text="DRAW" if s.winner<0 else "K.O." if s.time>0 else "TIME OVER"
+		subtitle="平 局" if s.winner<0 else "回 合 结 束"
+	if text=="": return
+	var parts: Array=[["ROUND",48,Color("fff3d2")],[str(s.round),66,Color("ff802d")]] if s.phase=="round" else [[text,54,Color("fff3d2")]]
+	var width: float=0
+	for part in parts: width+=round_font.get_string_size(part[0],HORIZONTAL_ALIGNMENT_LEFT,-1,part[1]).x
+	var p: Vector2=Vector2((640-width)/2,211)
+	var cursor: Vector2=p
+	# Orange extrusion and slanted lettering retain the reference's arcade treatment.
+	for part in parts:
+		arcade_word(part[0],cursor,part[1],part[2])
+		cursor.x+=round_font.get_string_size(part[0],HORIZONTAL_ALIGNMENT_LEFT,-1,part[1]).x
+	draw_colored_polygon(PackedVector2Array([Vector2(p.x-4,222),Vector2(274,218),Vector2(271,221),Vector2(p.x-6,225)]),Color("ff802d"))
+	draw_colored_polygon(PackedVector2Array([Vector2(367,218),Vector2(p.x+width+3,214),Vector2(p.x+width+1,218),Vector2(365,221)]),Color("ff802d"))
+	hud_text(subtitle,Vector2(260,225),12,IVORY,HORIZONTAL_ALIGNMENT_CENTER,120)

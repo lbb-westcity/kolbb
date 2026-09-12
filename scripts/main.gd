@@ -109,10 +109,13 @@ func valid_key(code: int) -> bool:
 	return (code>=KEY_SPACE and code<=KEY_ASCIITILDE) or code in [KEY_UP,KEY_DOWN,KEY_LEFT,KEY_RIGHT,KEY_SHIFT,KEY_TAB]
 
 func clear_ui() -> void:
+	resume_left=0;arena.countdown=0;arena.resume_fight_left=0
 	for child in ui.get_children(): ui.remove_child(child);child.queue_free()
+	arena.bg=load("res://assets/stage/menu-office.png" if screen in ["home","select"] else "res://assets/stage/office.png")
+	arena.character_select=screen=="select"
 	rebind=-1
 func text_label(text: String,pos: Vector2,size: int=16,color: Color=Color("f0e7d5"),width: int=580) -> Label:
-	var l=Label.new();l.text=text;l.position=pos;l.size.x=width;l.add_theme_font_size_override("font_size",size);l.add_theme_color_override("font_color",color);ui.add_child(l);return l
+	var l=Label.new();l.text=text;l.position=pos;l.add_theme_font_size_override("font_size",size);l.add_theme_color_override("font_color",color);ui.add_child(l);l.reset_size();l.size.x=width;return l
 func shade(rect: Rect2,alpha: float=.96) -> void:
 	var p=ColorRect.new();p.color=Color(.035,.065,.095,alpha);p.position=rect.position;p.size=rect.size;p.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(p)
 func button(text: String,pos: Vector2,callback: Callable,width: int=240) -> Button:
@@ -130,40 +133,142 @@ func header(title: String,subtitle: String="") -> void:
 func back_button(callback: Callable) -> void:
 	button("← 返回",Vector2(32,301),callback,120)
 
+func home_button(title: String,index: int,callback: Callable) -> Button:
+	var b=button(title,Vector2(30,156+index*29),callback,186)
+	b.size.y=27;b.add_theme_font_size_override("font_size",16)
+	var font=FontVariation.new();font.base_font=theme.default_font;font.variation_embolden=.6;b.add_theme_font_override("font",font)
+	var empty=StyleBoxEmpty.new();empty.content_margin_left=26;empty.content_margin_right=24
+	for state in ["normal","hover","pressed","focus"]: b.add_theme_stylebox_override(state,empty)
+	b.add_theme_color_override("font_color",Color("899ba8") if index==4 else Color("fff3d9"))
+	for state in ["font_focus_color","font_hover_color","font_pressed_color"]: b.add_theme_color_override(state,Color("071827"))
+	var highlight=Polygon2D.new();highlight.color=Color("22d9ee");highlight.show_behind_parent=true
+	highlight.polygon=PackedVector2Array([Vector2(0,0),Vector2(174,0),Vector2(186,12),Vector2(186,27),Vector2(0,27)])
+	highlight.visible=false;b.add_child(highlight)
+	var accent=Polygon2D.new();accent.color=Color("ff791f")
+	accent.polygon=PackedVector2Array([Vector2(178,0),Vector2(183,0),Vector2(194,11),Vector2(189,11)])
+	highlight.add_child(accent)
+	var arrow=Polygon2D.new();arrow.color=Color("ff791f")
+	arrow.polygon=PackedVector2Array([Vector2(8,8),Vector2(17,13),Vector2(8,19)])
+	highlight.add_child(arrow)
+	var number=Label.new();number.text="%02d" % (index+1);number.position=Vector2(159,5)
+	number.add_theme_font_size_override("font_size",11);number.add_theme_color_override("font_color",Color("899ba8"))
+	number.mouse_filter=Control.MOUSE_FILTER_IGNORE;b.add_child(number)
+	b.focus_entered.connect(func(): highlight.show();number.add_theme_color_override("font_color",Color("071827")))
+	b.focus_exited.connect(func(): highlight.hide();number.add_theme_color_override("font_color",Color("899ba8")))
+	b.mouse_entered.connect(b.grab_focus)
+	return b
+
 func show_home() -> void:
 	if Net.connected or Net.connecting: Net.disconnect_room()
 	screen="home";paused=false;online=false;arena.online=false;arena.hud=false;arena.demo=true
 	battle.reset();battle.state.phase="fight"
-	battle.state.fighters[0].x=392*256;battle.state.fighters[1].x=538*256
+	battle.state.fighters[0].x=358*256;battle.state.fighters[1].x=531*256
 	arena.reset_effects();clear_ui();audio.pause_music(false);audio.play_music("menu")
-	shade(Rect2(0,0,317,360),.95)
-	text_label("AFTER HOURS / 01",Vector2(30,24),12,Color("45cbd1"))
-	text_label("KOLBB",Vector2(26,42),48)
-	text_label("今天的班，就上到这里。",Vector2(30,112),16,Color("8b9a9f"))
-	button("单机对战",Vector2(30,153),show_select)
-	button("互联网对战",Vector2(30,193),show_network)
-	button("出招表",Vector2(30,233),func(): show_moves("home"),113)
-	button("设置",Vector2(155,233),func(): show_settings("home"),115)
-	button("退出",Vector2(30,273),func(): get_tree().quit())
-	text_label("WASD / 方向键选择    ENTER 确认",Vector2(30,326),11,Color("8b9a9f"))
-	text_label("RajerWei",Vector2(338,313),14,Color("45cbd1"),140)
-	text_label("JU GUAI",Vector2(509,313),14,Color("f29646"),125)
+	text_label("A F T E R  H O U R S  /  01",Vector2(30,24),9,Color("66e4e9"),190)
+	var rule=ColorRect.new();rule.position=Vector2(181,32);rule.size=Vector2(43,1);rule.color=Color("66e4e9")
+	rule.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(rule)
+	var logo=TextureRect.new();logo.name="Logo";logo.texture=preload("res://assets/ui/kolbb-logo.png")
+	logo.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;logo.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.position=Vector2(13,29);logo.size=Vector2(280,112);logo.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(logo)
+	text_label("今天的班，就上到这里。",Vector2(30,123),15,Color("fff3d9"),260)
+	var buttons: Array[Button]=[
+		home_button("单机对战",0,show_select),
+		home_button("互联网对战",1,show_network),
+		home_button("出招表",2,func(): show_moves("home")),
+		home_button("设置",3,func(): show_settings("home")),
+		home_button("退出",4,func(): get_tree().quit())]
+	for i in buttons.size():
+		var previous: NodePath=buttons[i].get_path_to(buttons[posmod(i-1,buttons.size())])
+		var next: NodePath=buttons[i].get_path_to(buttons[(i+1)%buttons.size()])
+		buttons[i].focus_neighbor_top=previous;buttons[i].focus_neighbor_left=previous;buttons[i].focus_previous=previous
+		buttons[i].focus_neighbor_bottom=next;buttons[i].focus_neighbor_right=next;buttons[i].focus_next=next
+	text_label("—  RajerWei  —",Vector2(302,306),11,Color("45cbd1"),130).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	text_label("—  JU GUAI  —",Vector2(478,306),11,Color("ff791f"),120).horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	focus_first()
-func show_select() -> void:
-	screen="select";clear_ui();header("选择你的下班方式","三名角色 · 允许镜像 · 99 秒 · 三局两胜")
-	text_label("你的角色",Vector2(34,86),16)
-	var p=OptionButton.new();p.position=Vector2(32,116);p.size=Vector2(270,34);p.add_item("RajerWei · 远程控场");p.add_item("JU GUAI · 近身压制");p.add_item("little black · 节奏突进");p.selected=selected;ui.add_child(p);p.item_selected.connect(func(i): selected=i)
-	text_label("CPU 角色",Vector2(332,86),16)
-	var enemy=OptionButton.new();enemy.position=Vector2(332,116);enemy.size=Vector2(270,34);enemy.add_item("RajerWei");enemy.add_item("JU GUAI");enemy.add_item("little black");enemy.selected=opponent;ui.add_child(enemy);enemy.item_selected.connect(func(i): opponent=i)
-	text_label("难度",Vector2(34,169),16)
-	var level=OptionButton.new();level.position=Vector2(106,165);level.size=Vector2(196,34)
+func select_card(slot: int,character: int) -> Button:
+	var accent=Color("22d9ee") if slot==0 else Color("ff791f")
+	var chosen: bool=character==(selected if slot==0 else opponent)
+	var b=button(Battle.NAMES[character],Vector2(76+slot*288+character*65,237),func():
+		if slot==0: selected=character
+		else: opponent=character
+		show_select(slot*3+character),60)
+	b.name="Character%d_%d" % [slot,character];b.toggle_mode=true;b.button_pressed=chosen
+	b.alignment=HORIZONTAL_ALIGNMENT_CENTER;b.add_theme_font_size_override("font_size",9)
+	b.tooltip_text=("你的角色：" if slot==0 else "对手角色：")+Battle.NAMES[character]
+	var normal=StyleBoxFlat.new();normal.bg_color=Color("091b29");normal.border_color=Color("4b738a");normal.set_border_width_all(1)
+	normal.content_margin_left=1;normal.content_margin_right=1;normal.content_margin_top=40;normal.content_margin_bottom=2
+	var active=normal.duplicate();active.bg_color=Color("123347");active.border_color=accent;active.set_border_width_all(2)
+	var focus=StyleBoxFlat.new();focus.draw_center=false;focus.border_color=Color("fff3d9");focus.set_border_width_all(1);focus.expand_margin_left=2;focus.expand_margin_right=2;focus.expand_margin_top=2;focus.expand_margin_bottom=2
+	b.add_theme_stylebox_override("normal",normal);b.add_theme_stylebox_override("hover",active)
+	b.add_theme_stylebox_override("pressed",active);b.add_theme_stylebox_override("hover_pressed",active);b.add_theme_stylebox_override("focus",focus)
+	b.size=Vector2(60,54)
+	var portrait=TextureRect.new();portrait.texture=arena.portrait[character];portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;portrait.position=Vector2(3,3);portrait.size=Vector2(54,36)
+	portrait.mouse_filter=Control.MOUSE_FILTER_IGNORE;b.add_child(portrait)
+	if chosen:
+		var badge=Label.new();badge.text="1P" if slot==0 else "CPU";badge.position=Vector2(2,1);badge.add_theme_font_size_override("font_size",8)
+		badge.add_theme_color_override("font_color",Color("061522"));badge.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		var fill=StyleBoxFlat.new();fill.bg_color=accent;fill.content_margin_left=3;fill.content_margin_right=3
+		badge.add_theme_stylebox_override("normal",fill);b.add_child(badge)
+	return b
+
+func show_select(focus_card: int=-1) -> void:
+	screen="select";paused=false;online=false;clear_ui()
+	battle.reset([selected,opponent]);battle.state.phase="fight"
+	arena.hud=false;arena.demo=true;arena.online=false;arena.reset_effects();audio.play_music("menu");audio.pause_music(false)
+	var ivory=Color("fff3d9");var orange=Color("ff791f");var cyan=Color("22d9ee")
+	var bold=FontVariation.new();bold.base_font=theme.default_font;bold.variation_embolden=1.2
+	var logo=TextureRect.new();logo.texture=preload("res://assets/ui/kolbb-logo.png")
+	logo.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;logo.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.position=Vector2(16,6);logo.size=Vector2(110,48);logo.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(logo)
+	text_label("选择你的下班方式",Vector2(173,21),32,orange,300).add_theme_font_override("font",bold)
+	text_label("选择你的下班方式",Vector2(172,19),32,ivory,300).add_theme_font_override("font",bold)
+	text_label("C H A R A C T E R   S E L E C T",Vector2(242,62),8,ivory,200)
+	moves_panel(Rect2(214,68,22,1),orange,orange);moves_panel(Rect2(414,68,22,1),orange,orange)
+	text_label("允许镜像 / 99 秒 / 三局两胜",Vector2(488,29),9,ivory,146)
+	moves_panel(Rect2(488,44,126,1),orange,orange)
+	for slot in 2:
+		var character: int=selected if slot==0 else opponent
+		var accent: Color=cyan if slot==0 else orange
+		var x: int=64 if slot==0 else 475
+		moves_panel(Rect2(x,91,101,17),accent,accent)
+		text_label("1P / 你的角色" if slot==0 else "CPU / 对手角色",Vector2(x+6,91),11,Color("061522"),99).add_theme_font_override("font",bold)
+		var name_label=text_label(Battle.NAMES[character],Vector2(x,113),22 if character!=2 else 20,ivory,158)
+		name_label.add_theme_font_override("font",bold)
+		var role_label=text_label(["远程控场","近身压制","节奏突进"][character],Vector2(x+7,143),12,accent,105)
+		for label in [name_label,role_label]:
+			label.add_theme_color_override("font_shadow_color",Color("061522"));label.add_theme_constant_override("shadow_offset_x",1);label.add_theme_constant_override("shadow_offset_y",1)
+		moves_panel(Rect2(x,164,90,1),accent,accent)
+	text_label("VS",Vector2(300,148),40,orange,80).add_theme_font_override("font",bold)
+	text_label("VS",Vector2(298,145),40,ivory,80).add_theme_font_override("font",bold)
+	moves_panel(Rect2(72,233,198,62),Color("081724"),Color("081724"))
+	moves_panel(Rect2(360,233,198,62),Color("081724"),Color("081724"))
+	var cards: Array[Button]=[]
+	for slot in 2:
+		for character in Battle.NAMES.size(): cards.append(select_card(slot,character))
+	text_label("CPU 难度",Vector2(74,308),11,ivory,56)
+	var level=OptionButton.new();level.name="Difficulty";level.position=Vector2(130,303);level.add_theme_font_size_override("font_size",11)
 	for title in ["简单 · 慢半拍的同事","普通 · 正常营业","困难 · 下班阻击战"]: level.add_item(title)
-	level.selected=difficulty;ui.add_child(level);level.item_selected.connect(func(i): difficulty=i)
-	text_label("移动 WASD   拳 J / U   脚 K / I\n按后防御 · 空格翻滚 · O 爆气\n必杀需要方向指令，出招表可随时查阅。",Vector2(34,214),14,Color("8b9a9f"))
-	button("出招表",Vector2(332,165),func(): show_moves("select"),270)
-	back_button(show_home)
-	button("开始对战 →",Vector2(332,295),start_local,270)
-	p.grab_focus()
+	level.fit_to_longest_item=false;level.selected=difficulty;ui.add_child(level);level.size=Vector2(137,26)
+	level.item_selected.connect(func(i): difficulty=i)
+	var moves=button("出招表",Vector2(278,303),func(): show_moves("select"),80);moves.name="SelectMoves"
+	moves.add_theme_font_size_override("font_size",13);moves.size.y=26;moves.alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var start=button("开始对战  →",Vector2(372,300),start_local,194);start.name="StartBattle"
+	start.add_theme_font_override("font",bold);start.add_theme_font_size_override("font_size",19);start.size.y=31;start.alignment=HORIZONTAL_ALIGNMENT_CENTER
+	var active=StyleBoxFlat.new();active.bg_color=orange;active.border_color=Color("ffba80");active.set_border_width_all(1)
+	start.add_theme_stylebox_override("normal",active)
+	var focused=active.duplicate();focused.bg_color=Color("ff9b50");focused.border_color=ivory;focused.set_border_width_all(2)
+	for state in ["hover","pressed","focus"]: start.add_theme_stylebox_override(state,focused)
+	for state in ["font_color","font_focus_color","font_hover_color","font_pressed_color"]: start.add_theme_color_override(state,Color("061522"))
+	var back=button("← 返回",Vector2(24,333),show_home,70);back.add_theme_font_size_override("font_size",11);back.size.y=20
+	back.add_theme_stylebox_override("normal",StyleBoxEmpty.new())
+	for i in cards.size():
+		cards[i].focus_neighbor_left=cards[i].get_path_to(cards[posmod(i-1,cards.size())])
+		cards[i].focus_neighbor_right=cards[i].get_path_to(cards[(i+1)%cards.size()])
+		cards[i].focus_neighbor_bottom=cards[i].get_path_to(level if i<3 else start)
+	level.focus_neighbor_top=level.get_path_to(cards[selected]);moves.focus_neighbor_top=moves.get_path_to(cards[selected])
+	start.focus_neighbor_top=start.get_path_to(cards[3+opponent])
+	cards[selected if focus_card<0 else focus_card].grab_focus()
 func start_local() -> void:
 	online=false;paused=false;resume_left=0;screen="fight";clear_ui()
 	battle.reset([selected,opponent],randi_range(1,2147483646))
@@ -172,75 +277,122 @@ func start_local() -> void:
 	arena.battle=battle;arena.hud=true;arena.demo=false;arena.online=false;arena.reset_effects();arena.status="CPU / "+["简单","普通","困难"][difficulty]
 	audio.play_music("battle");audio.pause_music(false)
 
+func moves_panel(rect: Rect2,fill: Color,border: Color) -> Panel:
+	var panel=Panel.new();panel.position=rect.position;panel.size=rect.size
+	var style=StyleBoxFlat.new();style.bg_color=fill;style.border_color=border;style.set_border_width_all(1)
+	panel.add_theme_stylebox_override("panel",style);panel.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(panel)
+	return panel
+
+func moves_keycap(text: String,pos: Vector2,width: int=24,color: Color=Color("f0e7d5"),height: int=20,font_size: int=12) -> Label:
+	var key=text_label(text,pos,font_size,color,width)
+	key.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER;key.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	var style=StyleBoxFlat.new();style.bg_color=Color("081a29");style.border_color=color.darkened(.35)
+	style.set_border_width_all(1);style.set_corner_radius_all(2)
+	key.add_theme_stylebox_override("normal",style);key.reset_size();key.size=Vector2(width,height)
+	return key
+
 func show_moves(origin: String, page: int = -1) -> void:
 	return_screen=origin;screen="moves";clear_ui()
 	moves_page=page if page>=0 else selected
 	if page<0 and origin=="pause":
 		moves_page=battle.state.fighters[Net.slot if online else 0].char
-	var accent: Color=[Color("45cbd1"),Color("f29646"),Color("a8b9e8"),Color("ffd166")][moves_page]
-	shade(Rect2(16,10,608,340),.99)
-	text_label("出招表",Vector2(30,14),24)
-	text_label("← → 切页  /  %02d · 04" % (moves_page+1),Vector2(421,25),12,Color("8b9a9f"),190)
+	var cyan=Color("35d8eb");var gold=Color("ffd166");var muted=Color("9dbed5")
+	var bold=FontVariation.new();bold.base_font=theme.default_font;bold.variation_embolden=.5
+	shade(Rect2(0,0,640,360),.28)
+	moves_panel(Rect2(24,8,592,344),Color("061522"),Color("3c617c"))
+	var logo=TextureRect.new();logo.texture=preload("res://assets/ui/kolbb-logo.png")
+	logo.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;logo.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.position=Vector2(32,17);logo.size=Vector2(84,28);logo.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(logo)
+	text_label("出招表",Vector2(137,9),28,Color("fff3d9"),114).add_theme_font_override("font",bold)
+	text_label("MOVE LIST",Vector2(253,27),13,Color("668eac"),115)
+	text_label("← → 切换角色",Vector2(435,24),11,muted,105)
+	text_label("%02d / 04" % (moves_page+1),Vector2(545,19),17,Color("ff791f"),62)
 	var tabs: Array=[]
 	for i in Battle.NAMES.size()+1:
-		var tab=button((Battle.NAMES+["共通操作"])[i],Vector2(30+i*147,51),func(): show_moves(origin,i),139)
-		tab.add_theme_font_size_override("font_size",14)
-		tab.alignment=HORIZONTAL_ALIGNMENT_CENTER
-		if i==moves_page:
-			var active=StyleBoxFlat.new();active.bg_color=Color("233d4c");active.border_color=accent
-			active.border_width_bottom=3
-			tab.add_theme_stylebox_override("normal",active)
-			tab.add_theme_color_override("font_color",accent)
+		var tab=button((Battle.NAMES+["共通操作"])[i],Vector2(34+i*145,51),func(): show_moves(origin,i),137)
+		tab.size.y=24;tab.add_theme_font_size_override("font_size",13);tab.alignment=HORIZONTAL_ALIGNMENT_CENTER
+		var style=StyleBoxFlat.new();style.bg_color=Color("ff791f") if i==moves_page else Color("0c2032")
+		style.border_color=Color("ffb16c") if i==moves_page else Color("416781");style.set_border_width_all(1)
+		tab.add_theme_stylebox_override("normal",style)
+		var focused=style.duplicate();focused.border_color=Color("fff3d9");focused.set_border_width_all(1)
+		for state in ["hover","focus","pressed"]: tab.add_theme_stylebox_override(state,focused)
+		for state in ["font_color","font_focus_color","font_hover_color","font_pressed_color"]:
+			tab.add_theme_color_override(state,Color("071827") if i==moves_page else muted)
 		tabs.append(tab)
 	if moves_page<Battle.NAMES.size():
-		var portrait=TextureRect.new();portrait.texture=arena.portrait[moves_page]
-		portrait.position=Vector2(70,94);portrait.size=Vector2(72,72)
+		moves_panel(Rect2(34,83,136,234),Color("081b2a"),Color("294b63"))
+		var portrait=TextureRect.new();portrait.name="MovePortrait"
+		portrait.texture=load("res://assets/ui/%s-movelist-v2.png" % Battle.ART[moves_page])
+		portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+		portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		portrait.position=Vector2(35,84);portrait.size=Vector2(134,123)
 		portrait.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(portrait)
-		text_label(["远程控场 / 食物博弈","近身压制 / 指令抓取","篮球牵制 / 节奏突进"][moves_page],Vector2(30,174),12,accent,162)
-		text_label(["用飞行道具控制距离，\n召唤落地，抢回主动。","用积分逼近对手，\n面谈压制，近身抓取。","投球牵制，肩撞逼近，\n音爆拦截空中对手。"][moves_page],Vector2(30,197),11,Color("f0e7d5"),162)
-		text_label("MAX 接触取消",Vector2(30,240),11,Color("ffd166"),162)
-		text_label(["大便投掷 ↔ 肯德基挚友","积分投掷 ↔ 绩效面谈","篮球 ↔ 铁山靠"][moves_page],Vector2(30,258),11,Color("f0e7d5"),162)
-		var inputs: Array=["↓ →  + A/C","↓ ←  + A/C","→ ↓ ←  + B/D" if moves_page==1 else "→ ↓  + B/D","↓ → ↓ →  + A/C"]
-		var notes: Array=["飞行道具 · 命中糊脸","汉堡：自己 +200\n对手 −200","召唤击飞 · 三片披萨\n自己每片 +50","超必杀 · 前冲抓取"] if moves_page==0 else ["飞行道具 · 命中大笑","气泡 + 文件夹 · 两段打击","近身指令投 · 不可拆投","超必杀 · 五波文件，可防御"] if moves_page==1 else ["直线投球 · 可抵消","向前肩撞 · 可防御","向上音波 · 对空击飞","舞步四连击 · 末段倒地"]
+		text_label(Battle.NAMES[moves_page],Vector2(39,207),21 if moves_page!=2 else 19,Color("fff3d9"),128)
+		text_label(["远程控场 / 食物博弈","近身压制 / 指令抓取","篮球牵制 / 节奏突进"][moves_page],Vector2(39,234),11,cyan,128)
+		text_label(["用飞行道具控制距离，\n召唤落地，抢回主动。","用积分逼近对手，\n面谈压制，近身抓取。","投球牵制，肩撞逼近，\n音爆拦截空中对手。"][moves_page],Vector2(39,250),10,Color("f0e7d5"),128)
+		moves_panel(Rect2(37,283,130,32),Color("091a27"),Color("a98131"))
+		text_label("✦ MAX 接触取消",Vector2(43,284),10,gold,120)
+		text_label(["大便投掷 ↔ 肯德基挚友","积分投掷 ↔ 绩效面谈","篮球 ↔ 铁山靠"][moves_page],Vector2(43,300),9,Color("f0e7d5"),120)
+		moves_panel(Rect2(182,83,424,22),Color("0b1d2d"),Color("365b75"))
+		text_label("招式 / 指令",Vector2(194,83),12,muted,200)
+		text_label("招式效果",Vector2(416,83),12,muted,130)
+		text_label("能量",Vector2(563,83),12,muted,38)
+		var inputs: Array=["↓ → A/C","↓ ← A/C","→ ↓ ← B/D" if moves_page==1 else "→ ↓ B/D","↓ → ↓ → A/C"]
+		var notes: Array=["飞行道具 · 命中糊脸","汉堡：自己 +200\n对手 −200","召唤击飞 · 三片披萨\n自己每片 +50","超必杀 · 前冲抓取"] if moves_page==0 else ["飞行道具 · 命中大笑","气泡 + 文件夹\n两段打击","近身指令投 · 不可拆投","超必杀 · 五波文件\n可防御"] if moves_page==1 else ["直线投球 · 可抵消","向前肩撞 · 可防御","向上音波 · 对空击飞","舞步四连击 · 末段倒地"]
 		var ids: Array=["S1","S2","S3","U1"]
 		if moves_page==2:
-			ids.insert(3,"S4");inputs.insert(3,"↓ ←  + B/D");notes.insert(3,"甩长裤 → 短裤踢击")
-		var spacing: int=38 if moves_page==2 else 48
+			ids.insert(3,"S4");inputs.insert(3,"↓ ← B/D");notes.insert(3,"甩长裤 → 短裤踢击")
+		var spacing: int=40 if moves_page==2 else 49
 		for i in ids.size():
 			var ultimate: bool=ids[i]=="U1"
 			var move: Dictionary=battle.moves["P%d-%s" % [moves_page+1,ids[i]]]
-			var y: int=94+i*spacing
-			var card=ColorRect.new();card.position=Vector2(202,y);card.size=Vector2(408,spacing-4)
-			card.color=Color("10202b");card.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(card)
-			var stripe=ColorRect.new();stripe.position=Vector2(202,y);stripe.size=Vector2(2,spacing-4)
-			stripe.color=Color("ffd166") if ultimate else accent;stripe.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(stripe)
-			text_label(move.name,Vector2(214,y+1),15,Color("ffd166") if ultimate else Color("f0e7d5"),190)
-			var cost=text_label("%d 能量" % move.cost if move.cost>0 else "无消耗",Vector2(535,y+3),11,Color("ffd166") if move.cost>0 else Color("8b9a9f"),64)
-			cost.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
-			text_label(inputs[i],Vector2(214,y+(19 if moves_page==2 else 23)),12,accent,196)
-			var note=text_label(notes[i],Vector2(412,y+3),10,Color("aab5b7"),120)
-			note.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-			note.size=Vector2(120,34)
+			var y: int=106+i*spacing;var height: int=spacing-4
+			var row=moves_panel(Rect2(182,y,424,height),Color("2b261a") if ultimate else Color("0b2031"),Color("a98131") if ultimate else Color("25465e"))
+			row.name="MoveRow"+ids[i]
+			moves_panel(Rect2(182,y,3,height),gold if ultimate else cyan,gold if ultimate else cyan)
+			moves_panel(Rect2(405,y+4,1,height-8),Color("365168"),Color("365168"))
+			text_label(move.name,Vector2(194,y-1),11 if moves_page==2 else 14,gold if ultimate else Color("fff3e3"),204).add_theme_font_override("font",bold)
+			var tokens: PackedStringArray=inputs[i].split(" ");var x: int=194
+			for token in tokens:
+				var attack: bool=token.contains("/")
+				if attack:
+					text_label("+",Vector2(x,y+height-21),12,Color("f0e7d5"),12);x+=15
+				moves_keycap(token.replace("/"," / "),Vector2(x,y+height-(18 if moves_page==2 else 21)),44 if attack else 24,Color("ff791f") if token=="B/D" else cyan if attack else Color("c8ddec"),17 if moves_page==2 else 20,10 if moves_page==2 else 12)
+				x+=29
+			var note=text_label(notes[i],Vector2(416,y),11,Color("e1e8eb"),137)
+			note.size.y=height;note.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+			var cost=text_label(str(move.cost) if move.cost>0 else "无消耗",Vector2(557,y+13 if ultimate else y),15 if ultimate else 17 if move.cost>0 else 11,gold if move.cost>0 else Color("e1e8eb"),43)
+			cost.size.y=height-13 if ultimate else height;cost.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER;cost.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+			if ultimate:
+				var badge=moves_keycap("SUPER",Vector2(558,y+1),40,Color("071827"),11,7)
+				var badge_style=StyleBoxFlat.new();badge_style.bg_color=gold;badge_style.set_corner_radius_all(2)
+				badge.add_theme_stylebox_override("normal",badge_style);badge.reset_size();badge.size=Vector2(40,11)
+		text_label("方向依次按，可按住再加键；朝左时左右反转。",Vector2(188,303),10,muted,414)
 	else:
 		moves_common()
-	text_label("方向依次按，可按住再加键；朝左时左右反转。  A / C = 轻拳 / 重拳    B / D = 轻脚 / 重脚",Vector2(30,291),11,Color("8b9a9f"),580)
-	button("← 返回",Vector2(30,313),func(): return_to(origin),120)
+	moves_panel(Rect2(34,320,572,1),Color("416781"),Color("416781"))
+	var back=button("ESC  返回",Vector2(39,325),func(): return_to(origin),97)
+	back.size.y=21;back.add_theme_font_size_override("font_size",12)
 	for i in 4:
-		var key: String=OS.get_keycode_string(settings.keys[4+i])
-		text_label(["A 轻拳","B 轻脚","C 重拳","D 重脚"][i]+"  ["+key+"]",Vector2(166+i*112,322),11,Color("f0e7d5"),110)
+		var x: int=163+i*112
+		moves_panel(Rect2(x-13,328,1,16),Color("294b63"),Color("294b63"))
+		moves_keycap(["A","B","C","D"][i],Vector2(x,326),19,[Color("47a9ee"),Color("ff791f"),cyan,Color("f06455")][i],20)
+		text_label(["轻拳","轻脚","重拳","重脚"][i],Vector2(x+25,326),11,Color("f0e7d5"),28)
+		moves_keycap(OS.get_keycode_string(settings.keys[4+i]),Vector2(x+58,327),38,muted,18,10)
 	tabs[moves_page].grab_focus()
 
 func moves_common() -> void:
-	text_label("01  移动与防守",Vector2(30,95),14,Color("45cbd1"),280)
-	text_label("后：站防   /   下后：蹲防\n上轻点 / 按住：小跳 / 普通跳\n前前：跑   /   后后：后撤\n跑中上 / 下后上：大跳",Vector2(30,119),12,Color("f0e7d5"),280)
-	text_label("02  攻击与普通投",Vector2(30,207),14,Color("45cbd1"),280)
-	text_label("下 + 攻击：蹲攻击；空中 + 攻击：跳攻击\n近身前 / 后 + C：普通投\n受抓 7 帧内 C / D：拆普通投",Vector2(30,231),12,Color("f0e7d5"),280)
-	text_label("03  翻滚与 MAX",Vector2(330,95),14,Color("ffd166"),280)
 	var roll_key: String=OS.get_keycode_string(settings.keys[8])
 	var max_key: String=OS.get_keycode_string(settings.keys[9])
-	text_label("%s 或 A+B：翻滚，仍会被抓\n%s 或 B+C：MAX，消耗 100 能量\n重拳 / 重脚命中后快速 MAX：200 能量\nMAX 内超必杀：本次 100，清空 MAX" % [roll_key,max_key],Vector2(330,119),12,Color("f0e7d5"),280)
-	text_label("04  实战提示",Vector2(330,207),14,Color("ffd166"),280)
-	text_label("先用轻拳确认命中，再试 下、前 + 重拳。\n普通攻击无防御削血；必杀削血不会 KO。\n食物只由物主获益，别误吃对手的汉堡。",Vector2(330,231),12,Color("f0e7d5"),280)
+	var titles=["01  移动与防守","02  攻击与普通投","03  翻滚与 MAX","04  实战提示"]
+	var descriptions=["后：站防   /   下后：蹲防\n上轻点 / 按住：小跳 / 普通跳\n前前：跑   /   后后：后撤\n跑中上 / 下后上：大跳", "下 + 攻击：蹲攻击\n空中 + 攻击：跳攻击\n近身前 / 后 + C：普通投\n受抓 7 帧内 C / D：拆普通投", "%s 或 A+B：翻滚，仍会被抓\n%s 或 B+C：MAX，消耗 100 能量\n重拳 / 重脚命中后快速 MAX：200 能量\nMAX 内超必杀：本次 100，清空 MAX" % [roll_key,max_key], "先用轻拳确认命中，再试 下、前 + 重拳。\n普通攻击无防御削血。\n必杀削血不会 KO。\n食物只由物主获益，别误吃对手的汉堡。"]
+	for i in 4:
+		var x: int=34+(i%2)*292;var y: int=83+(i/2)*117
+		var accent=Color("35d8eb") if i<2 else Color("ffd166")
+		moves_panel(Rect2(x,y,280,109),Color("0b2031"),Color("294b63"))
+		moves_panel(Rect2(x,y,3,23),accent,accent)
+		text_label(titles[i],Vector2(x+12,y+2),14,accent,256)
+		text_label(descriptions[i],Vector2(x+12,y+30),11,Color("e1e8eb"),256)
 func return_to(origin: String) -> void:
 	match origin:
 		"select": show_select()
@@ -293,7 +445,7 @@ func resume_battle() -> void:
 	clear_ui();screen="fight"
 	if online: return
 	resume_left=3;paused=true
-	text_label("3",Vector2(299,150),40)
+	arena.countdown=3;arena.queue_redraw()
 func show_result() -> void:
 	if screen=="result": return
 	screen="result";clear_ui()
@@ -417,9 +569,10 @@ func _process(dt: float) -> void:
 	if not arena: return
 	if resume_left>0:
 		resume_left=maxf(0,resume_left-dt)
-		for child in ui.get_children():
-			if child is Label: child.text=str(ceili(resume_left))
-		if resume_left==0: paused=false;clear_ui();audio.pause_music(false)
+		arena.countdown=resume_left
+		if resume_left==0:
+			paused=false;clear_ui();audio.pause_music(false)
+			arena.resume_fight_left=.5+dt
 	arena.animate(dt,paused and not online)
 func _input(event: InputEvent) -> void:
 	if not arena: return
