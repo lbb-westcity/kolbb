@@ -270,7 +270,7 @@ func accept_input(f: Dictionary, other: Dictionary) -> void:
 func pay(f: Dictionary, cost: int) -> bool:
 	if f.energy < cost:
 		f.flash_meter = 12
-		event("denied",f.slot,{"text":"需要 %d 能量" % cost})
+		event("denied",f.slot,{"text":"需要 %d 格能量" % ceili(cost/100.0)})
 		return false
 	f.energy -= cost
 	return true

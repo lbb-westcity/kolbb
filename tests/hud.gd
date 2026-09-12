@@ -65,15 +65,54 @@ func run() -> void:
 	var empty: Image=await shot("empty")
 	if empty:
 		for x in [90,250,390,550]: assert(pixel(empty,x,39).r<.15,"Zero health must leave empty bars")
+	# Empty meters must still show denied input; danger is separate from damage trails.
+	s.fighters[0].hp=180;s.fighters[1].hp=240
+	main.arena.delayed_hp=[180.0,240.0]
+	s.fighters[0].energy=0;main.battle.events.clear()
+	assert(not main.battle.pay(s.fighters[0],100))
+	assert(main.battle.events.back().text=="需要 1 格能量")
+	main.arena.present(main.battle.events,main.audio)
+	var feedback: Image=await shot("feedback")
+	if feedback:
+		assert(pixel(feedback,100,32).r>.8 and pixel(feedback,100,32).g<.5,"Low health has a danger outline")
+		assert(pixel(feedback,52,338).r>.8 and pixel(feedback,52,338).g<.5,"Zero-energy denial highlights the empty frame")
+	main.battle.events.clear()
+	assert(not main.battle.pay(s.fighters[0],200))
+	assert(main.battle.events.back().text=="需要 2 格能量")
+	main.arena.message_age=0;s.fighters[0].flash_meter=0
+	s.frame+=1;s.fighters[0].energy=99;main.battle.events.clear()
+	main.battle.add_energy(s.fighters[0],1)
+	main.arena.present(main.battle.events,main.audio)
+	assert(main.arena.fx.any(func(e): return e.kind=="stock" and e.slot==0))
+	var glow: Image=await shot("stock")
+	if glow: assert(pixel(glow,52,338).r>.9 and pixel(glow,52,338).g>.6,"A completed stock lights its frame")
+	main.arena.animate(.6,true)
+	assert(main.arena.fx.any(func(e): return e.kind=="stock"),"Pausing freezes stock feedback")
+	main.arena.animate(.6,false)
+	assert(not main.arena.fx.any(func(e): return e.kind=="stock"),"Stock highlight clears")
+	for age in [60,55,6,0]:
+		s.fighters[0].combo_age=age;s.fighters[0].combo_damage=999;main.arena.combo_hits[0]=100
+		await shot("combo-"+str(age))
 	s.phase="result";s.winner=0;await shot("ko")
 	main.battle.state=initial;main.battle.state.phase="fight"
 	main.arena.reset_effects();main.arena.online=true;main.arena.status="128 ms"
-	main.battle.state.fighters[1].char=2;await shot("online")
+	main.battle.state.fighters[1].char=2
+	var net=root.get_node("Net")
+	var previous_slot: int=net.slot
+	for slot in 2:
+		net.slot=slot
+		assert(main.arena.hud_player_label(slot)=="%dP · 你" % (slot+1))
+		assert(not main.arena.hud_player_label(1-slot).contains("你"))
+		await shot("online-"+str(slot))
+	main.arena.status="等待网络";await shot("waiting")
+	net.slot=previous_slot
+	main.arena.online=false;main.arena.status="CPU / 困难"
+	assert(main.arena.hud_player_label(1)=="CPU · 困难")
 	if "touch" in main and main.touch:
 		main.arena.online=false;main.arena.status="CPU / 普通";main.touch.visible=true
 		await shot("touch")
-		assert(main.touch.PAUSE.position.y>62,"Pause button clears the timer")
-		main.touch.press(9,main.touch.PAUSE.get_center())
+		assert(main.touch.pause_rect.position.y>62,"Pause button clears the timer")
+		main.touch.press(9,main.touch.pause_rect.get_center())
 		assert(main.paused,"Relocated pause button remains interactive")
-	print("PASS HUD: 3-2-1 timing, freeze/resume/cancellation, round/fight/result, portraits, mirrored health, damage trails, POW, MAX, timer, wins, online and logo")
+	print("PASS HUD: 3-2-1 timing, freeze/resume/cancellation, round/fight/result, portraits, mirrored health, damage trails, POW, MAX, timer, wins, local identity, empty-meter denial, stock pulse, danger, combo fade, online and logo")
 	main.queue_free();await process_frame;quit()

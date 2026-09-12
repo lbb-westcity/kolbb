@@ -580,53 +580,75 @@ func hud_panel(points: PackedVector2Array, fill: Color, edge: Color, thickness: 
 	draw_polyline(points,edge,thickness)
 
 func hud_text(text: String, p: Vector2, size: int, color: Color=IVORY, align: HorizontalAlignment=HORIZONTAL_ALIGNMENT_LEFT, width: float=-1) -> void:
-	draw_string_outline(hud_font,p,text,align,width,size,2,Color("071321"))
+	draw_string_outline(hud_font,p,text,align,width,size,2,Color(Color("071321"),color.a))
 	draw_string(hud_font,p,text,align,width,size,color)
+
+func hud_player_label(slot: int) -> String:
+	if online: return "%dP · 你" % (slot+1) if slot==Net.slot else "%dP" % (slot+1)
+	return status.replace(" / "," · ") if slot==1 and status!="" else "%dP" % (slot+1)
 
 func draw_hud() -> void:
 	var s: Dictionary=battle.state
 	for i in 2:
 		var f: Dictionary=s.fighters[i]
 		var color: Color=Color("32e1ef") if i==0 else Color("ff802d")
+		var danger: bool=f.hp>0 and f.hp<=250
 		# Mirror the frame geometry; keep portraits and text facing the reader.
 		draw_set_transform(Vector2.ZERO if i==0 else Vector2(640,0),0,Vector2(1 if i==0 else -1,1))
 		hud_panel(PackedVector2Array([Vector2(23,16),Vector2(64,16),Vector2(68,20),Vector2(68,51),Vector2(27,51),Vector2(23,47)]),Color("071321"),color,1.5)
-		hud_panel(PackedVector2Array([Vector2(73,32),Vector2(268,32),Vector2(277,47),Vector2(74,47),Vector2(71,43),Vector2(71,35)]),Color("071321"),color,1.5)
+		hud_panel(PackedVector2Array([Vector2(73,32),Vector2(268,32),Vector2(277,47),Vector2(74,47),Vector2(71,43),Vector2(71,35)]),Color("071321"),RED if danger else color,2 if danger else 1.5)
 		for pair in [[delayed_hp[i],RED],[f.hp,Color("fff3d2")]]:
 			var end: float=75+196*clampf(float(pair[0])/1000,0,1)
 			if end>75:
 				draw_colored_polygon(PackedVector2Array([Vector2(75,35),Vector2(minf(end,265),35),Vector2(end,44),Vector2(75,44)]),pair[1])
 		for tick in [140,205]: draw_line(Vector2(tick,43),Vector2(tick,45),Color("071321"),1)
 		for j in 2:
-			var p: Vector2=Vector2(37+j*14,60)
-			hud_panel(PackedVector2Array([p+Vector2(0,-4),p+Vector2(4,0),p+Vector2(0,4),p+Vector2(-4,0)]),color if s.wins[i]>j else Color("071321"),IVORY)
+			var p: Vector2=Vector2(36+j*17,61)
+			hud_panel(PackedVector2Array([p+Vector2(0,-5),p+Vector2(5,0),p+Vector2(0,5),p+Vector2(-5,0)]),color if s.wins[i]>j else Color("071321"),IVORY,1.5)
 		draw_set_transform(Vector2.ZERO)
 		var headx: int=25 if i==0 else 574
 		var tex: Texture2D=portrait[f.char]
 		if tex: draw_texture_rect(tex,Rect2(headx,18,41,31),false)
 		hud_text(Battle.NAMES[f.char],Vector2(75 if i==0 else 476,28),12,IVORY,HORIZONTAL_ALIGNMENT_LEFT if i==0 else HORIZONTAL_ALIGNMENT_RIGHT,90)
-		hud_text("1P" if i==0 else status.replace(" / "," · ") if not online and status!="" else "2P",Vector2(172 if i==0 else 390,28),9,color,HORIZONTAL_ALIGNMENT_LEFT if i==0 else HORIZONTAL_ALIGNMENT_RIGHT,80)
+		hud_text(hud_player_label(i),Vector2(172 if i==0 else 390,28),11,GOLD if online and i==Net.slot else color,HORIZONTAL_ALIGNMENT_LEFT if i==0 else HORIZONTAL_ALIGNMENT_RIGHT,80)
+		if danger: hud_text("危险",Vector2(75 if i==0 else 495,61),11,RED,HORIZONTAL_ALIGNMENT_LEFT if i==0 else HORIZONTAL_ALIGNMENT_RIGHT,70)
 		var ex: int=52 if i==0 else 472
-		hud_text("POW",Vector2(ex-26,334),9,color)
+		hud_text("POW",Vector2(ex-29,334),10,RED if f.flash_meter>0 else color)
+		var stock_glow: float=0
+		for effect in fx:
+			if effect.kind=="stock" and effect.slot==i: stock_glow=maxf(stock_glow,effect.life/effect.total)
+		if settings.get("flash",false): stock_glow*=.45
 		for j in 3:
 			var amount: float=clampf(f.energy-j*100,0,100)/100.0
 			var x: int=ex+j*45
-			hud_panel(PackedVector2Array([Vector2(x,333),Vector2(x+41,333),Vector2(x+42,334),Vector2(x+42,343),Vector2(x+1,343),Vector2(x,342)]),Color("071321"),color)
+			hud_panel(PackedVector2Array([Vector2(x,333),Vector2(x+41,333),Vector2(x+42,334),Vector2(x+42,343),Vector2(x+1,343),Vector2(x,342)]),Color("071321"),RED if f.flash_meter>0 else color.lerp(GOLD,stock_glow) if amount==1 else color,2 if f.flash_meter>0 or (amount==1 and stock_glow>0) else 1)
 			if amount>0: box(Rect2(x+2,335,38*amount,6),RED if f.flash_meter>0 else GOLD if amount==1 else color)
 		if f.max>0:
-			hud_text("MAX",Vector2(ex,327),9,GOLD)
-			box(Rect2(ex+28,321,103,4),Color("172735"))
-			box(Rect2(ex+28,321,103.0*f.max/f.max_total,4),GOLD)
+			hud_text("MAX",Vector2(ex,327),11,GOLD)
+			box(Rect2(ex+31,319,100,6),Color("172735"))
+			box(Rect2(ex+31,319,100.0*f.max/f.max_total,6),GOLD)
 		var target: Dictionary=s.fighters[1-i]
 		if target.combo_age>0 and combo_hits[1-i]>=2:
-			hud_text("%d HITS" % combo_hits[1-i],Vector2(25 if i==0 else 519,104),18,color)
-			hud_text("%d DAMAGE" % target.combo_damage,Vector2(25 if i==0 else 519,117),9)
+			var fade: float=minf(1,target.combo_age/12.0)
+			var pop: float=0 if settings.get("flash",false) else roundf(sin(clampf((60-target.combo_age)/10.0,0,1)*PI)*3)
+			var hits: String="%d HITS" % combo_hits[1-i]
+			var damage: String="%d DAMAGE" % target.combo_damage
+			var width: float=ceilf(maxf(92,maxf(hud_font.get_string_size(hits,HORIZONTAL_ALIGNMENT_LEFT,-1,18).x,hud_font.get_string_size(damage,HORIZONTAL_ALIGNMENT_LEFT,-1,10).x)))
+			var p: Vector2=Vector2(25 if i==0 else 615-width,104-pop)
+			var align: HorizontalAlignment=HORIZONTAL_ALIGNMENT_LEFT if i==0 else HORIZONTAL_ALIGNMENT_RIGHT
+			box(Rect2(p-Vector2(5,20),Vector2(width+10,39)),Color(INK,.86*fade))
+			hud_text(hits,p,18,Color(color,fade),align,width)
+			hud_text(damage,p+Vector2(0,14),10,Color(IVORY,fade),align,width)
 	hud_panel(PackedVector2Array([Vector2(289,18),Vector2(351,18),Vector2(361,36),Vector2(351,62),Vector2(289,62),Vector2(279,36)]),Color("071321"),Color("436579"),2)
 	draw_polyline(PackedVector2Array([Vector2(286,23),Vector2(279,36),Vector2(289,56)]),Color("32e1ef"),2)
 	draw_polyline(PackedVector2Array([Vector2(354,23),Vector2(361,36),Vector2(351,56)]),Color("ff802d"),2)
 	draw_string(round_font,Vector2(280,47),"%02d" % ceili(s.time/60.0),HORIZONTAL_ALIGNMENT_CENTER,80,32,RED if s.time<=1200 else Color("fff3d2"))
-	hud_text("ROUND %d" % s.round,Vector2(280,58),8,IVORY,HORIZONTAL_ALIGNMENT_CENTER,80)
-	if online and status!="": hud_text(status,Vector2(367,60),8,CYAN)
+	hud_text("ROUND %d" % s.round,Vector2(280,59),10,IVORY,HORIZONTAL_ALIGNMENT_CENTER,80)
+	if online and status!="":
+		if status=="等待网络":
+			box(Rect2(365,51,96,22),Color(INK,.95),GOLD)
+			hud_text("等待网络…",Vector2(372,67),11,GOLD)
+		else: hud_text(status,Vector2(367,62),10,CYAN)
 	draw_texture_rect(hud_logo,Rect2(296,329,48,19),false)
 
 func arcade_word(text: String, p: Vector2, size: int, color: Color) -> void:
