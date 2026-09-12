@@ -2,7 +2,7 @@
 
 [返回百科首页](README.md) · [输入记号](getting-started.md) · [取消规则](combat.md)
 
-依据当前 `assets/moves.json` 与 `scripts/battle.gd` 整理，版本 0.1.2 / rules-3，核对日期 2026-09-11。伤害为基础值，实际受连段衰减影响。
+依据当前 `assets/moves.json` 与 `scripts/battle.gd` 整理，版本 0.1.3 / rules-3，核对日期 2026-09-12。伤害为基础值，实际受连段衰减影响。
 
 **单位为帧，60 帧约 1 秒。** S／A／R：起手／有效／收招；H／B：命中／防御硬直。通用可站防和蹲防，低段须蹲防，中段须站防。A/B/C/D 对应默认键盘 J/K/U/I；5 为站立，2 为蹲姿，j 为空中。
 
