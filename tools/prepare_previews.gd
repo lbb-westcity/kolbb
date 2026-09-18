@@ -1,7 +1,7 @@
 extends SceneTree
 
 func _initialize() -> void:
-	for who in ["rajer","juguai","littleblack"]:
+	for who in preload("res://scripts/battle.gd").ART:
 		var frames: SpriteFrames=load("res://assets/fighters/"+who+"_frames.tres").duplicate()
 		for animation in frames.get_animation_names():
 			if animation not in ["core","core_alt"]: frames.remove_animation(animation)

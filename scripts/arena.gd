@@ -40,6 +40,7 @@ var world_offset: Vector2 = Vector2.ZERO
 var confirmed: int = -1
 var portrait: Array = []
 var littleblack_fx: Dictionary = {}
+var linbin_fx: Dictionary = {}
 
 func _ready() -> void:
 	texture_filter=CanvasItem.TEXTURE_FILTER_NEAREST
@@ -68,6 +69,9 @@ func prepare_fighters(characters: Array, full: bool) -> void:
 		props=load("res://assets/props/props.png");animated_props=load("res://assets/props/animated.png")
 		if 2 in characters:
 			for name in ["ball","sonic","shoulder","trousers"]: littleblack_fx[name]=load("res://assets/props/littleblack_"+name+".png")
+		if 3 in characters:
+			for name in ["cup","reflect","clock"]: linbin_fx[name]=load("res://assets/props/linbin_"+name+".png")
+	if not full or 3 not in characters: linbin_fx.clear()
 	if not full or 2 not in characters: littleblack_fx.clear()
 	if not full: props=null;animated_props=null
 
@@ -95,14 +99,18 @@ func present(events: Array, audio) -> void:
 			"action":
 				var id: String=e.move
 				if id.begins_with("P3-"): sound={"P3-S1":"basketball","P3-S2":"shoulder","P3-S3":"sonic","P3-S4":"kick"}.get(id,"super")
+				elif id.begins_with("P4-"): sound={"P4-S1":"shoulder","P4-S2":"coin","P4-S3":"sonic"}.get(id,"super")
 				elif id.ends_with("S1"): sound="poop" if id.begins_with("P1") else "coin"
 				elif id.ends_with("S2"): sound="burger" if id.begins_with("P1") else "talk"
 				elif id.ends_with("S3"): sound="summon" if id.begins_with("P1") else "capture"
 				else: sound="kick" if id.ends_with("B") or id.ends_with("D") else "punch"
-			"projectile": sound=["poop","coin","basketball"][battle.state.fighters[e.slot].char]
+			"projectile": sound=["poop","coin","basketball","coin"][battle.state.fighters[e.slot].char]
+		if e.kind=="reflect": sound="clash"
+		if e.kind=="deadline_clear": sound="break"
+		if e.kind=="deadline_burst": sound="heavy"
 		if e.kind=="victory": audio.play_music("victory")
 		else: audio.sound(sound,1.0+(int(e.get("slot",0))*0.025))
-		if e.kind in ["hit","block","pickup","clash","land","max","summon","slam","whip","break","stock","super","projectile","papers"]:
+		if e.kind in ["hit","block","pickup","clash","land","max","summon","slam","whip","break","stock","super","projectile","papers","reflect","deadline_clear","deadline_burst"]:
 			var effect: Dictionary=e.duplicate()
 			if e.slot>=0:
 				var f: Dictionary=battle.state.fighters[e.slot]
@@ -184,7 +192,7 @@ func _draw() -> void:
 	for f in battle.state.fighters:
 		var height: float=(Battle.GROUND-f.y)/256.0
 		draw_set_transform(offset+Vector2(f.x/256.0,293),0,Vector2(1,0.18))
-		draw_circle(Vector2.ZERO,maxf(12,[22,25,22][f.char]-height*.06),Color(0,0,0,.28))
+		draw_circle(Vector2.ZERO,maxf(12,[22,25,22,22][f.char]-height*.06),Color(0,0,0,.28))
 	draw_set_transform(offset)
 	for f in battle.state.fighters:
 		var action_age: int=maxi(0,f.age-1)
@@ -262,14 +270,18 @@ func animation(f: Dictionary) -> Array:
 		else:
 			group="specials"
 			var row: int=0
-			if f.char==2:
+			if f.char==3:
+				row={"pat":0,"projectile":1,"throw":2,"reflect":3}.get(m.kind,0)
+			elif f.char==2:
 				row={"projectile":0,"shoulder":1,"throw":2,"sonic":3}.get(m.kind,0)
 			elif f.char==0:
 				row=1 if m.kind=="summon" else 2 if m.kind in ["room","throw"] else 0
 			else:
 				row=1 if m.kind=="talk" else 2 if m.kind in ["grab","throw"] else 3 if m.kind=="papers" else 0
 			frame=row*6+phase_frame
-			if f.char==2:
+			if f.char==3:
+				if m.kind=="deadline": group="specials2";frame=phase_frame
+			elif f.char==2:
 				if m.kind=="trousers":
 					group="wardrobe"
 					frame=mini(4,f.age*5/14) if f.age<14 else 5 if f.age<18 else 6+mini(1,(f.age-18)/6) if f.age<30 else 9 if f.age<35 else 10+mini(1,(f.age-35)/3) if f.age<41 else 12+mini(5,(f.age-41)*6/20)
@@ -337,6 +349,15 @@ func draw_fighter(f: Dictionary,override_pos: Vector2=Vector2.INF,override_frame
 	if not shadow:
 		if not character_select: marker(p+Vector2(0,8),f.slot,CYAN if f.slot==0 else ORANGE)
 		if f.stain>0: box(Rect2(p+Vector2(f.face*4-5,-132),Vector2(10,6)),Color("79442b"))
+	if not f.deadline.is_empty():
+		var q: Vector2=Vector2(clampf(p.x,62,578),maxf(82,p.y-163))
+		draw_linbin_fx("clock",mini(3,(180-f.deadline.left)/45),q+Vector2(-36,-6),Vector2(22,22))
+		label("收工 %d" % ceili(f.deadline.left/60.0),q+Vector2(-22,0),14,RED)
+	if f.char==3 and f.mode=="attack":
+		if f.move=="P4-S1" and f.age>=8 and f.age<24: label("老弟！",p+Vector2(-22,-149),16,IVORY)
+		if f.move=="P4-U1" and f.age>=20 and f.age<29:
+			var q: Vector2=p+Vector2(f.face*90,-42)
+			label("收工通知",q-Vector2(32,0),16,GOLD)
 	if f.char==2 and f.mode=="attack":
 		var age: int=maxi(0,f.age-1)
 		if f.move=="P3-S3" and age>=10 and age<16:
@@ -365,8 +386,21 @@ func draw_littleblack_fx(id: String, frame: int, p: Vector2, size: Vector2, face
 	draw_texture_rect_region(tex,Rect2(-size/2,size),Rect2(Vector2(frame%3,frame/3)*cell,cell),tint)
 	draw_set_transform(world_offset)
 
+func draw_linbin_fx(id: String, frame: int, p: Vector2, size: Vector2) -> void:
+	if not linbin_fx.has(id): return
+	var tex: Texture2D=linbin_fx[id]
+	var cell: Vector2=Vector2(tex.get_width()/3,tex.get_height()/2)
+	draw_texture_rect_region(tex,Rect2(p-size/2,size),Rect2(Vector2(frame%3,frame/3)*cell,cell))
+
 func draw_entity(e: Dictionary) -> void:
 	var p: Vector2=Vector2(e.x/256.0,e.y/256.0)
+	if e.kind=="projectile" and e.char==3:
+		if e.move=="P4-S3":
+			draw_linbin_fx("reflect",(e.age/4)%6,p,Vector2(80,34))
+			label("涛声依旧",p+Vector2(-32,6),16,IVORY)
+			label("BUG",p+Vector2(-10,-16),9,GOLD)
+		else: draw_linbin_fx("cup",(e.age/4)%6,p,Vector2(26,26))
+		return
 	if e.kind=="projectile":
 		var color: Color=[Color("b98c54"),GOLD,ORANGE][e.char]
 		for i in range(3,0,-1):
@@ -417,7 +451,7 @@ func draw_entity(e: Dictionary) -> void:
 				draw_prop(10,Vector2(x,y),Vector2(18,23))
 
 func skill_color(character: int) -> Color:
-	return [CYAN,GOLD,ORANGE][clampi(character,0,2)]
+	return [CYAN,GOLD,ORANGE,Color("79c9b1")][clampi(character,0,3)]
 
 func draw_burst(p: Vector2,color: Color,progress: float,count: int=10,radius: float=40,gravity: float=18) -> void:
 	# Analytic particles: no nodes, saved simulation state, or battle RNG consumption.
@@ -519,7 +553,13 @@ func draw_effect(e: Dictionary) -> void:
 	var color: Color=skill_color(e.get("char",0))
 	if e.kind=="slam" and e.get("move","")=="P2-S3": color=RED
 	var opacity: float=.55 if settings.get("flash",false) else 1.0
-	if e.kind=="block":
+	if e.kind=="reflect":
+		draw_linbin_fx("reflect",mini(5,int((1-k)*6)),p,Vector2(92,54))
+		label("BUG 退回",p+Vector2(-29,-22),13,Color(CYAN,k))
+	elif e.kind in ["deadline_clear","deadline_burst"]:
+		draw_linbin_fx("clock",mini(5,int((1-k)*6)),p+Vector2(0,-30),Vector2(42,42))
+		label(e.text,p+Vector2(-36,-5),18,Color(GOLD,k))
+	elif e.kind=="block":
 		var angle: float=0 if e.get("face",1)==1 else PI
 		for i in 2: draw_arc(p,18+(1-k)*12+i*5,angle-PI*.6,angle+PI*.6,16,Color(CYAN,k*opacity*(1-i*.5)),2-i)
 		draw_burst(p,CYAN,1-k,5,24,6)
@@ -535,6 +575,7 @@ func draw_effect(e: Dictionary) -> void:
 		draw_colored_polygon(points,Color(IVORY,k*opacity))
 		draw_arc(p,9+(1-k)*(42 if heavy else 26),0,TAU,24,Color(color,k*opacity*.5),1)
 		draw_burst(p,color,1-k,14 if heavy else 8,52 if heavy else 32)
+		if e.get("move","")=="P4-S2": draw_burst(p,Color("b78e4d"),1-k,8,32,18)
 		if e.kind=="whip":
 			var face: int=e.get("face",1)
 			draw_polyline(PackedVector2Array([p+Vector2(-face*43,16),p+Vector2(-face*28,-13),p+Vector2(-face*13,-18),p]),Color(GOLD,k*opacity),2)

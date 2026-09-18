@@ -83,7 +83,7 @@ func run() -> void:
 				ok(b.state.fighters[0].move=="P%d-S1" % (ch+1),"SDJ with 0.2s steps held=%s face=%d char=%d" % [held,face,ch])
 				ok(b.state.fighters[0].input.dir==(3 if held else 6),"command input preserves movement direction")
 				for i in 20: b.step([0,0])
-				ok(not b.state.entities.is_empty(),"SDJ spawns projectile in battle")
+				ok(b.state.entities.is_empty() if ch==3 else not b.state.entities.is_empty(),"SDJ is Linbin pat or a projectile")
 	b=fresh()
 	for id in b.moves:
 		var m: Dictionary=b.moves[id]

@@ -6,17 +6,17 @@ class Relay extends "res://scripts/network.gd":
 func _initialize() -> void: call_deferred("run")
 func run() -> void:
 	var relay=Relay.new();root.add_child(relay);relay.server_mode=true
-	relay.control("hello",{"version":"kolbb-0.1.2-rules-2-art-3"})
+	relay.control("hello",{"version":"kolbb-0.1.2-rules-3-art-3"})
 	assert(relay.sent[-1].action=="error" and relay.verified.is_empty(),"old version rejected")
 	relay.control("hello",{"version":relay.VERSION})
 	assert(relay.verified.has(0),"current version accepted")
 	relay.control("create",{})
 	var room: Dictionary=relay.rooms[relay.members[0]]
-	for ch in [0,1,2,0]:
+	for ch in [0,1,2,3,0]:
 		room.ready[0]=true
 		relay.control("character",{"character":ch})
 		assert(room.chars[0]==ch and not room.ready[0],"roster selection clears readiness")
-	for ch in [-1,3,99]:
+	for ch in [-1,4,99]:
 		relay.control("character",{"character":ch});assert(room.chars[0]==0,"invalid character rejected")
 	relay.control("character",{"character":2})
 	room.phase="fight";relay.control("character",{"character":0})

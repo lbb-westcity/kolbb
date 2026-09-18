@@ -78,7 +78,7 @@ static func sample(c: Dictionary, bits: int, facing: int, char_id: int, frozen: 
 		var kick: bool = bool(attack & (B|D))
 		if punch and motion(c.motions,[2,6,2,6],c.clock,60): command = "U1"
 		elif char_id == 1 and kick and motion(c.motions,[6,2,4],c.clock,40): command = "S3"
-		elif char_id in [0,2] and kick and motion(c.motions,[6,2],c.clock,40): command = "S3"
+		elif char_id in [0,2,3] and kick and motion(c.motions,[6,2],c.clock,40): command = "S3"
 		elif punch and motion(c.motions,[2,6],c.clock,40): command = "S1"
 		elif punch and motion(c.motions,[2,4],c.clock,40): command = "S2"
 		elif char_id == 2 and kick and motion(c.motions,[2,4],c.clock,40): command = "S4"

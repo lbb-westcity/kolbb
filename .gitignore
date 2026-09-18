@@ -16,3 +16,5 @@ __pycache__/
 
 # Rebuildable sprite processing cache (raw action sheets remain tracked)
 design/littleblack/processed/
+
+design/linbin/processed/

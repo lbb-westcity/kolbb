@@ -24,7 +24,7 @@ class Page(HTMLParser):
 
 
 pages = {p: Page(p) for p in ROOT.glob('*.html')}
-assert len(pages) == 9
+assert len(pages) == 10
 for path, page in pages.items():
     assert page.active == 1, path
     for link in page.links:
@@ -38,6 +38,6 @@ for path, page in pages.items():
             assert unquote(url.fragment) in pages[target].ids, (path.name, link)
 assert '40 × 5' in (ROOT / 'moves.html').read_text()
 assert '服务器地址' in (ROOT / 'online.html').read_text()
-print('PASS: 9 pages, navigation, local links, images and heading anchors')
+print('PASS: 10 pages, navigation, local links, images and heading anchors')
 
 assert '露出鸡脚' in (ROOT / 'little-black.html').read_text()

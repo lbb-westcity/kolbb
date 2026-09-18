@@ -38,12 +38,13 @@ func sequence(dirs: Array, attack: int, face: int) -> void:
 func sample(battle, slot: int = 1) -> int:
 	var s: Dictionary = battle.state
 	# Observe only public state; never copy command histories or current buttons.
-	var view: Dictionary = {"frame":s.frame,"fighters":[],"warning":false,"food":[]}
+	var view: Dictionary = {"frame":s.frame,"fighters":[],"warning":false,"food":[],"shots":[]}
 	for f in s.fighters:
-		view.fighters.append({"x":f.x,"y":f.y,"face":f.face,"mode":f.mode,"move":f.move,"energy":f.energy,"max":f.max,"hp":f.hp,"char":f.char,"contact":f.contact,"confirmed_hit":f.confirmed_hit})
+		view.fighters.append({"x":f.x,"y":f.y,"face":f.face,"mode":f.mode,"move":f.move,"energy":f.energy,"max":f.max,"hp":f.hp,"char":f.char,"contact":f.contact,"confirmed_hit":f.confirmed_hit,"marked":not f.deadline.is_empty()})
 	for f in s.fighters:
 		if f.slot!=slot and f.move=="P1-S3": view.warning=true
 	for e in s.entities:
+		if e.kind=="projectile" and not e.dead: view.shots.append({"x":e.x,"owner":e.owner,"vx":e.vx})
 		if e.kind in ["burger","pizza"] and e.owner==slot and e.age>=e.travel:
 			view.food.append({"x":e.x,"kind":e.kind})
 	history.append(view)
@@ -71,6 +72,10 @@ func sample(battle, slot: int = 1) -> int:
 		var foodx: int=seen.food[0].x
 		var d: int=5 if absi(foodx-me.x)<12*256 else 6 if (foodx-me.x)*face>0 else 4
 		for i in 12: queue.append(bits(d,face))
+	elif me.char==3 and level>0 and seen.shots.any(func(e): return e.owner!=slot and (e.x-me.x)*e.vx<0 and absi(e.x-me.x)>100*256 and absi(e.x-me.x)<280*256) and roll<75:
+		sequence([6,2],C.B,face)
+	elif me.marked and distance<150 and roll<80:
+		sequence([2,6] if me.char==3 else [5],C.A,face)
 	elif (foe.mode=="attack" or seen.warning) and roll<[35,60,80][level]:
 		var d: int = 1 if foe.move.contains("-2") else 4
 		if seen.warning and level==2: d=9
@@ -87,8 +92,10 @@ func sample(battle, slot: int = 1) -> int:
 		sequence([6,2],C.B,face)
 	elif me.char==2 and distance>=58 and distance<145 and roll<55:
 		sequence([2,4],C.B if roll<20 else C.A,face)
-	elif distance>150 and roll<60:
+	elif me.char==3 and distance>=65 and distance<145 and roll<55:
 		sequence([2,6],C.A,face)
+	elif distance>150 and roll<60:
+		sequence([2,4] if me.char==3 else [2,6],C.A,face)
 	elif distance<58 and me.char==1 and roll<25:
 		sequence([6,2,4],C.D,face)
 	elif distance<95:

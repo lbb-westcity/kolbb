@@ -3,7 +3,7 @@ const Rollback = preload("res://scripts/rollback.gd")
 func _initialize() -> void:
 	call_deferred("run")
 func run() -> void:
-	for chars in [[0,1],[2,0],[1,2],[2,2]]: check_match(chars)
+	for chars in [[0,1],[2,0],[1,2],[2,2],[3,0],[3,1],[2,3],[3,3]]: check_match(chars)
 	quit()
 func check_match(chars: Array) -> void:
 	var a=Rollback.new();var b=Rollback.new()

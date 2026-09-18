@@ -74,8 +74,8 @@ func _ready() -> void:
 	Net.result_confirmed.connect(func(_data): verified_result=true)
 	var args=OS.get_cmdline_user_args()
 	if "--verify-assets" in args:
-		arena.prepare_fighters([0,1,2],true)
-		var valid: bool=audio.clips.size()==42 and arena.textures.size()==56 and arena.portrait.size()==Battle.NAMES.size() and arena.framesets.size()==Battle.NAMES.size() and arena.animated_props!=null and arena.littleblack_fx.size()==4
+		arena.prepare_fighters(range(Battle.NAMES.size()),true)
+		var valid: bool=audio.clips.size()==42 and arena.textures.size()==74 and arena.portrait.size()==Battle.NAMES.size() and arena.framesets.size()==Battle.NAMES.size() and arena.animated_props!=null and arena.littleblack_fx.size()==4 and arena.linbin_fx.size()==3
 		print("Asset check: ","PASS" if valid else "FAIL"," / audio ",audio.clips.size()," / atlases ",arena.textures.size())
 		get_tree().quit(0 if valid else 1)
 		return
@@ -206,10 +206,10 @@ func show_home() -> void:
 func select_card(slot: int,character: int) -> Button:
 	var accent=Color("22d9ee") if slot==0 else Color("ff791f")
 	var chosen: bool=character==(selected if slot==0 else opponent)
-	var b=button(Battle.NAMES[character],Vector2(76+slot*288+character*65,237),func():
+	var b=button(Battle.NAMES[character],Vector2(46+slot*288+character*65,237),func():
 		if slot==0: selected=character
 		else: opponent=character
-		show_select(slot*3+character),60)
+		show_select(slot*Battle.NAMES.size()+character),60)
 	b.name="Character%d_%d" % [slot,character];b.toggle_mode=true;b.button_pressed=chosen
 	b.alignment=HORIZONTAL_ALIGNMENT_CENTER;b.add_theme_font_size_override("font_size",9)
 	b.tooltip_text=("你的角色：" if slot==0 else "对手角色：")+Battle.NAMES[character]
@@ -253,14 +253,14 @@ func show_select(focus_card: int=-1) -> void:
 		text_label("1P / 你的角色" if slot==0 else "木桩 / 对手角色" if training else "CPU / 对手角色",Vector2(x+6,91),11,Color("061522"),99).add_theme_font_override("font",bold)
 		var name_label=text_label(Battle.NAMES[character],Vector2(x,113),22 if character!=2 else 20,ivory,158)
 		name_label.add_theme_font_override("font",bold)
-		var role_label=text_label(["远程控场","近身压制","节奏突进"][character],Vector2(x+7,143),12,accent,105)
+		var role_label=text_label(["远程控场","近身压制","节奏突进","反射施压"][character],Vector2(x+7,143),12,accent,105)
 		for label in [name_label,role_label]:
 			label.add_theme_color_override("font_shadow_color",Color("061522"));label.add_theme_constant_override("shadow_offset_x",1);label.add_theme_constant_override("shadow_offset_y",1)
 		moves_panel(Rect2(x,164,90,1),accent,accent)
 	text_label("VS",Vector2(300,148),40,orange,80).add_theme_font_override("font",bold)
 	text_label("VS",Vector2(298,145),40,ivory,80).add_theme_font_override("font",bold)
-	moves_panel(Rect2(72,233,198,62),Color("081724"),Color("081724"))
-	moves_panel(Rect2(360,233,198,62),Color("081724"),Color("081724"))
+	moves_panel(Rect2(42,233,264,62),Color("081724"),Color("081724"))
+	moves_panel(Rect2(330,233,264,62),Color("081724"),Color("081724"))
 	var cards: Array[Button]=[]
 	for slot in 2:
 		for character in Battle.NAMES.size(): cards.append(select_card(slot,character))
@@ -284,9 +284,9 @@ func show_select(focus_card: int=-1) -> void:
 	for i in cards.size():
 		cards[i].focus_neighbor_left=cards[i].get_path_to(cards[posmod(i-1,cards.size())])
 		cards[i].focus_neighbor_right=cards[i].get_path_to(cards[(i+1)%cards.size()])
-		cards[i].focus_neighbor_bottom=cards[i].get_path_to(level if i<3 else start)
+		cards[i].focus_neighbor_bottom=cards[i].get_path_to(level if i<Battle.NAMES.size() else start)
 	level.focus_neighbor_top=level.get_path_to(cards[selected]);moves.focus_neighbor_top=moves.get_path_to(cards[selected])
-	start.focus_neighbor_top=start.get_path_to(cards[3+opponent])
+	start.focus_neighbor_top=start.get_path_to(cards[Battle.NAMES.size()+opponent])
 	cards[selected if focus_card<0 else focus_card].grab_focus()
 func start_local() -> void:
 	arena.practice_mode=training
@@ -385,10 +385,10 @@ func show_moves(origin: String, page: int = -1) -> void:
 	text_label("出招表",Vector2(137,9),28,Color("fff3d9"),114).add_theme_font_override("font",bold)
 	text_label("MOVE LIST",Vector2(253,27),13,Color("668eac"),115)
 	text_label("← → 切换角色",Vector2(435,24),11,muted,105)
-	text_label("%02d / 04" % (moves_page+1),Vector2(545,19),17,Color("ff791f"),62)
+	text_label("%02d / %02d" % [moves_page+1,Battle.NAMES.size()+1],Vector2(545,19),17,Color("ff791f"),62)
 	var tabs: Array=[]
 	for i in Battle.NAMES.size()+1:
-		var tab=button((Battle.NAMES+["共通操作"])[i],Vector2(34+i*145,51),func(): show_moves(origin,i),137)
+		var tab=button((Battle.NAMES+["共通操作"])[i],Vector2(34+i*116,51),func(): show_moves(origin,i),108)
 		tab.size.y=24;tab.add_theme_font_size_override("font_size",13);tab.alignment=HORIZONTAL_ALIGNMENT_CENTER
 		var style=StyleBoxFlat.new();style.bg_color=Color("ff791f") if i==moves_page else Color("0c2032")
 		style.border_color=Color("ffb16c") if i==moves_page else Color("416781");style.set_border_width_all(1)
@@ -407,17 +407,18 @@ func show_moves(origin: String, page: int = -1) -> void:
 		portrait.position=Vector2(35,84);portrait.size=Vector2(134,123)
 		portrait.mouse_filter=Control.MOUSE_FILTER_IGNORE;ui.add_child(portrait)
 		text_label(Battle.NAMES[moves_page],Vector2(39,207),21 if moves_page!=2 else 19,Color("fff3d9"),128)
-		text_label(["远程控场 / 食物博弈","近身压制 / 指令抓取","篮球牵制 / 节奏突进"][moves_page],Vector2(39,234),11,cyan,128)
-		text_label(["用飞行道具控制距离，\n召唤落地，抢回主动。","用积分逼近对手，\n面谈压制，近身抓取。","投球牵制，肩撞逼近，\n音爆拦截空中对手。"][moves_page],Vector2(39,250),10,Color("f0e7d5"),128)
+		text_label(["远程控场 / 食物博弈","近身压制 / 指令抓取","篮球牵制 / 节奏突进","反射控场 / 限时施压"][moves_page],Vector2(39,234),11,cyan,128)
+		text_label(["用飞行道具控制距离，\n召唤落地，抢回主动。","用积分逼近对手，\n面谈压制，近身抓取。","投球牵制，肩撞逼近，\n音爆拦截空中对手。","拍肩突进，茶杯牵制，\n退回 BUG，限时收工。"][moves_page],Vector2(39,250),10,Color("f0e7d5"),128)
 		moves_panel(Rect2(37,283,130,32),Color("091a27"),Color("a98131"))
 		text_label("✦ MAX 接触取消",Vector2(43,284),10,gold,120)
-		text_label(["大便投掷 ↔ 肯德基挚友","积分投掷 ↔ 绩效面谈","篮球 ↔ 铁山靠"][moves_page],Vector2(43,300),9,Color("f0e7d5"),120)
+		text_label(["大便投掷 ↔ 肯德基挚友","积分投掷 ↔ 绩效面谈","篮球 ↔ 铁山靠","老弟 ↔ 喝茶"][moves_page],Vector2(43,300),9,Color("f0e7d5"),120)
 		moves_panel(Rect2(182,83,424,22),Color("0b1d2d"),Color("365b75"))
 		text_label("招式 / 指令",Vector2(194,83),12,muted,200)
 		text_label("招式效果",Vector2(416,83),12,muted,130)
 		text_label("能量",Vector2(563,83),12,muted,38)
 		var inputs: Array=["↓ → A/C","↓ ← A/C","→ ↓ ← B/D" if moves_page==1 else "→ ↓ B/D","↓ → ↓ → A/C"]
 		var notes: Array=["飞行道具 · 命中糊脸","汉堡：自己 +200\n对手 −200","召唤击飞 · 三片披萨\n自己每片 +50","超必杀 · 前冲抓取"] if moves_page==0 else ["飞行道具 · 命中大笑","气泡 + 文件夹\n两段打击","近身指令投 · 不可拆投","超必杀 · 五波文件\n可防御"] if moves_page==1 else ["直线投球 · 可抵消","向前肩撞 · 可防御","向上音波 · 对空击飞","舞步四连击 · 末段倒地"]
+		if moves_page==3: notes=["前冲拍肩 · 可防御","投掷茶杯 · 单个在场","文字远攻 · 反射一次","3 秒后精神爆伤\n击中施术者可解除"]
 		var ids: Array=["S1","S2","S3","U1"]
 		if moves_page==2:
 			ids.insert(3,"S4");inputs.insert(3,"↓ ← B/D");notes.insert(3,"甩长裤 → 短裤踢击")

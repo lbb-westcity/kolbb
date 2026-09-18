@@ -2,7 +2,7 @@
 
 [返回百科首页](README.md) · [输入记号](getting-started.md) · [取消规则](combat.md)
 
-依据当前 `assets/moves.json` 与 `scripts/battle.gd` 整理，版本 0.1.3 / rules-3，核对日期 2026-09-12。伤害为基础值，实际受连段衰减影响。
+依据当前 `assets/moves.json` 与 `scripts/battle.gd` 整理，桌面开发版 rules-4，核对日期 2026-09-18。伤害为基础值，实际受连段衰减影响。
 
 **单位为帧，60 帧约 1 秒。** S／A／R：起手／有效／收招；H／B：命中／防御硬直。通用可站防和蹲防，低段须蹲防，中段须站防。A/B/C/D 对应默认键盘 J/K/U/I；5 为站立，2 为蹲姿，j 为空中。
 
@@ -112,3 +112,7 @@ MAX 内三种超必杀本次消耗均为 100 并清空 MAX：捆绑 play 为 320
 ## 数据来源
 
 [普通招式原始 JSON](../../assets/moves.json) · [特殊招式与战斗结算](../../scripts/battle.gd) · [指令识别](../../scripts/commands.gd)
+
+## linbin 新招式
+
+[linbin 完整招式与反制规则](linbin.md)。普通攻击沿用 RajerWei 数值，使用独立动画；普通投伤害 100，范围 50 像素。

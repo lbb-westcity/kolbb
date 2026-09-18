@@ -2,20 +2,20 @@ extends RefCounted
 const Commands = preload("res://scripts/commands.gd")
 const FP = 256
 const GROUND = 292 * FP
-const NAMES = ["RajerWei", "JU GUAI", "little black"]
-const PREFIX = ["RW-", "JG-", "LB-"]
-const ART = ["rajer", "juguai", "littleblack"]
-const FORWARD_SPEED = [704,576,704]
-const BACK_SPEED = [576,448,576]
-const RUN_SPEED = [1152,1024,1152]
-const BACKSTEP_DISTANCE = [64,56,64]
-const BODY_WIDTH = [18,24,18]
-const THROW_RANGE = [50,56,50]
-const PROJECTILE_OFFSET = [32,36,32]
-const PROJECTILE_HEIGHT = [88,84,88]
-const PROJECTILE_SPEED = [4,4,4]
-const PROJECTILE_LIFE = [150,150,150]
-const PROJECTILE_RADIUS = [9,8,10]
+const NAMES = ["RajerWei", "JU GUAI", "little black", "linbin"]
+const PREFIX = ["RW-", "JG-", "LB-", "LN-"]
+const ART = ["rajer", "juguai", "littleblack", "linbin"]
+const FORWARD_SPEED = [704,576,704,704]
+const BACK_SPEED = [576,448,576,576]
+const RUN_SPEED = [1152,1024,1152,1152]
+const BACKSTEP_DISTANCE = [64,56,64,64]
+const BODY_WIDTH = [18,24,18,18]
+const THROW_RANGE = [50,56,50,50]
+const PROJECTILE_OFFSET = [32,36,32,32]
+const PROJECTILE_HEIGHT = [88,84,88,88]
+const PROJECTILE_SPEED = [4,4,4,4]
+const PROJECTILE_LIFE = [150,150,150,150]
+const PROJECTILE_RADIUS = [9,8,10,10]
 static var CRC_TABLE: PackedInt64Array = make_crc_table()
 var moves: Dictionary = {}
 var state: Dictionary = {}
@@ -41,13 +41,18 @@ func _init() -> void:
 	add_move("P3-U1","鸡你太美",18,28,30,40,14,12,100,"dance")
 	add_move("P3-S4","露出鸡脚",14,21,26,40,22,16,0,"trousers")
 	add_move("LB-THROW","普通投",4,1,25,100,24,0,0,"throw")
+	add_move("P4-S1","老弟",12,8,28,75,26,18,0,"pat")
+	add_move("P4-S2","喝茶",18,1,23,60,26,16,0,"projectile")
+	add_move("P4-S3","涛声依旧",22,1,30,50,24,16,0,"reflect")
+	add_move("P4-U1","收工咯～",24,4,32,20,16,16,100,"deadline")
+	add_move("LN-THROW","普通投",4,1,25,100,24,0,0,"throw")
 	reset()
 
 func add_move(id: String, title: String, s: int, a: int, r: int, damage: int, h: int, b: int, cost: int, kind: String) -> void:
-	moves[id] = {"id":id,"name":title,"s":s,"a":a,"r":r,"damage":damage,"h":h,"b":b,"cost":cost,"kind":kind,"box":[0,0,0,0],"level":"mid","launch":false,"hard":false,"cancel":"S" if kind in ["projectile","summon","talk","shoulder","sonic"] else ""}
+	moves[id] = {"id":id,"name":title,"s":s,"a":a,"r":r,"damage":damage,"h":h,"b":b,"cost":cost,"kind":kind,"box":[0,0,0,0],"level":"mid","launch":false,"hard":false,"cancel":"S" if kind in ["projectile","summon","talk","shoulder","sonic","pat","reflect"] else ""}
 
 func fighter(ch: int, slot: int, energy: int = 0) -> Dictionary:
-	return {"char":ch,"slot":slot,"x":(160+slot*320)*FP,"y":GROUND,"vx":0,"vy":0,"face":1 if slot==0 else -1,"hp":1000,"energy":energy,"max":0,"max_total":600,"mode":"idle","age":0,"action_id":0,"move":"","hits":[],"contact":false,"confirmed_hit":false,"chain":[],"combo":0,"combo_damage":0,"combo_age":0,"combo_display":0,"combo_moves":[],"combo_scale":100,"hitstun":0,"invthrow":0,"airhits":0,"air_attack":false,"hard":false,"knock":0,"knock_time":0,"knock_rem":0,"pickup":0,"reaction":"","reaction_time":0,"stain":0,"input":Commands.fresh(),"run":false,"jump_big":false,"jump_forward":0,"throw_back":false,"enhanced":false,"target_x":0,"start_x":0,"blocked_this":false,"energy_awards":[],"flash_meter":0}
+	return {"char":ch,"slot":slot,"x":(160+slot*320)*FP,"y":GROUND,"vx":0,"vy":0,"face":1 if slot==0 else -1,"hp":1000,"energy":energy,"max":0,"max_total":600,"mode":"idle","age":0,"action_id":0,"move":"","hits":[],"contact":false,"confirmed_hit":false,"chain":[],"combo":0,"combo_damage":0,"combo_age":0,"combo_display":0,"combo_moves":[],"combo_scale":100,"hitstun":0,"invthrow":0,"airhits":0,"air_attack":false,"hard":false,"knock":0,"knock_time":0,"knock_rem":0,"pickup":0,"reaction":"","reaction_time":0,"stain":0,"input":Commands.fresh(),"run":false,"jump_big":false,"jump_forward":0,"throw_back":false,"enhanced":false,"target_x":0,"start_x":0,"blocked_this":false,"energy_awards":[],"flash_meter":0,"deadline":{}}
 
 func reset(chars: Array = [0,1], seed_value: int = 1234567, match_id: int = 1) -> void:
 	state = {"frame":0,"world":0,"time":5940,"round":1,"wins":[0,0],"draws":0,"phase":"intro","phase_time":120,"winner":-1,"freeze":0,"cinema":{},"fighters":[fighter(int(chars[0]),0),fighter(int(chars[1]),1)],"entities":[],"next_id":1,"rng":maxi(1,seed_value),"match":match_id}
@@ -97,6 +102,8 @@ func step(buttons: Array) -> Array:
 		return events
 	state.world += 1
 	for f in state.fighters:
+		if not f.deadline.is_empty(): f.deadline.left -= 1
+	for f in state.fighters:
 		f.blocked_this = false
 		for key in ["max","invthrow","pickup","reaction_time","stain","flash_meter"]:
 			f[key] = maxi(0,f[key]-1)
@@ -128,10 +135,11 @@ func step(buttons: Array) -> Array:
 		if not hit.block and hit.target not in hit_slots: hit_slots.append(hit.target)
 	for hit in contacts:
 		apply_hit(hit)
+	hit_slots.append_array(resolve_deadlines())
 	# Strike beats throw, even if the opposing throw was collected first.
 	var legal_grabs: Array = []
 	for grab in grabs:
-		if grab.owner not in hit_slots and grab.target not in hit_slots and state.fighters[grab.target].hp > 0:
+		if grab.owner not in hit_slots and grab.target not in hit_slots and state.fighters[grab.owner].hp > 0 and state.fighters[grab.target].hp > 0:
 			legal_grabs.append(grab)
 	if legal_grabs.size() == 2:
 		throw_break()
@@ -299,14 +307,16 @@ func can_cancel(f: Dictionary, id: String) -> bool:
 		return "Q" in next.cancel or ("L" in next.cancel and lights < 2)
 	if id.ends_with("U1"): return "S" in old.cancel
 	if f.max <= 120: return false
-	var pair: Array = [["P1-S1","P1-S3"],["P2-S1","P2-S2"],["P3-S1","P3-S2"]][f.char]
+	var pair: Array = [["P1-S1","P1-S3"],["P2-S1","P2-S2"],["P3-S1","P3-S2"],["P4-S1","P4-S2"]][f.char]
 	return f.move in pair and id in pair
 
 func can_spawn(f: Dictionary, id: String) -> bool:
 	var kind: String = moves[id].kind
 	for e in state.entities:
 		if e.owner != f.slot or e.get("dead",false): continue
-		if kind=="projectile" and e.kind=="projectile" and moves[e.move].kind=="projectile": return false
+		if kind=="projectile" and e.kind=="projectile" and moves[e.move].kind=="projectile":
+			if id!="P4-S2" or e.move==id: return false
+		if kind=="reflect" and e.get("move","")==id: return false
 		if kind=="trousers" and e.get("move","")==id: return false
 		if kind=="burger" and e.kind=="burger": return false
 		if kind=="summon" and e.kind in ["summon","pizza"]: return false
@@ -330,6 +340,10 @@ func move_fighter(f: Dictionary) -> void:
 		f.x += f.face*4*FP
 	elif f.mode=="attack" and moves[f.move].kind=="shoulder" and f.age>=4 and f.age<20:
 		f.x += f.face*4*FP
+	elif f.mode=="attack" and moves[f.move].kind=="pat" and f.age>=12 and f.age<20 and not f.contact:
+		var other: Dictionary=state.fighters[1-f.slot]
+		var gap: int=maxi(0,(other.x-f.x)*f.face-(BODY_WIDTH[f.char]+BODY_WIDTH[other.char])*FP)
+		f.x += f.face*mini(10*FP,gap)
 	if f.mode=="jump_prepare" and f.age >= (4 if f.jump_big else 3):
 		f.mode = "air"
 		f.age = 0
@@ -384,6 +398,8 @@ func spawn_events(f: Dictionary) -> void:
 	if m.kind=="projectile" and t==m.s:
 		entity({"kind":"projectile","owner":f.slot,"x":f.x+f.face*PROJECTILE_OFFSET[f.char]*FP,"y":f.y-PROJECTILE_HEIGHT[f.char]*FP,"vx":f.face*PROJECTILE_SPEED[f.char]*FP,"life":PROJECTILE_LIFE[f.char],"age":-1,"char":f.char,"move":f.move,"face":f.face,"hits":[],"source_frame":f.action_id})
 		event("projectile",f.slot)
+	elif m.kind=="reflect" and t==m.s:
+		entity({"kind":"projectile","owner":f.slot,"x":f.x+f.face*48*FP,"y":f.y-88*FP,"vx":f.face*3*FP,"life":100,"age":-1,"char":f.char,"move":f.move,"face":f.face,"hits":[],"source_frame":f.action_id})
 	elif m.kind=="trousers" and t==m.s:
 		entity({"kind":"projectile","owner":f.slot,"x":f.x+f.face*32*FP,"y":f.y-88*FP,"vx":f.face*5*FP,"life":100,"age":-1,"char":f.char,"move":f.move,"face":f.face,"hits":[],"source_frame":f.action_id})
 	elif m.kind=="burger" and t==24:
@@ -441,6 +457,8 @@ func attackbox(f: Dictionary) -> Rect2i:
 	var m: Dictionary = moves[f.move]
 	if f.age<m.s or f.age>=m.s+m.a: return Rect2i()
 	if m.kind=="normal": return rect(f.x,f.y,f.face,m.box)
+	if m.kind=="pat": return rect(f.x,f.y,f.face,[8,66,-120,-34])
+	if m.kind=="deadline": return rect(f.x,f.y,f.face,[8,180,-72,-8])
 	if m.kind=="shoulder": return rect(f.x,f.y,f.face,[8,66,-120,-34])
 	if m.kind=="sonic": return rect(f.x,f.y,f.face,[4,84,-210,-48])
 	if m.kind=="trousers" and f.age>=30: return rect(f.x,f.y,f.face,[8,96,-112,-32])
@@ -495,8 +513,7 @@ func collect_entity(e: Dictionary, contacts: Array) -> void:
 	if target.slot in e.hits or target.airhits>=2: return
 	var box: Rect2i
 	if e.kind=="projectile":
-		var size: int = PROJECTILE_RADIUS[e.char]
-		box = rect(e.x,e.y,1,[-size,size,-size,size])
+		box = projectile_box(e)
 	elif e.kind=="summon": box = rect(e.x,e.y,1,[-56,56,-160,0])
 	else: box = rect(e.x,e.y,e.face,[32,608,-72,-8])
 	if not box.intersects(hurtbox(target)): return
@@ -504,21 +521,68 @@ func collect_entity(e: Dictionary, contacts: Array) -> void:
 	var m: Dictionary = moves[e.move]
 	var hit: Dictionary = make_hit(f,target,m,e.get("damage",m.damage),m.h,m.b,e.get("wave",0),e.move+"/"+str(e.source_frame),guardable(target,"mid",e.face))
 	hit.face = e.face
+	hit.origin_char = e.char if e.kind=="projectile" else f.char
 	hit.launch = e.kind=="summon"
 	contacts.append(hit)
 	if e.kind=="projectile": e.dead = true
+
+func projectile_box(e: Dictionary) -> Rect2i:
+	if moves[e.move].kind=="reflect": return rect(e.x,e.y,1,[-36,36,-12,12])
+	var size: int=PROJECTILE_RADIUS[e.char]
+	return rect(e.x,e.y,1,[-size,size,-size,size])
 
 func cancel_projectiles() -> void:
 	for i in state.entities.size():
 		var a: Dictionary = state.entities[i]
 		if a.kind!="projectile" or a.dead: continue
 		for j in range(i+1,state.entities.size()):
+			if a.dead: break
 			var b: Dictionary = state.entities[j]
 			if b.kind!="projectile" or b.dead or a.owner==b.owner: continue
-			if abs(a.x-b.x)<18*FP and abs(a.y-b.y)<18*FP:
-				a.dead = true
-				b.dead = true
-				event("clash",a.owner,{"x":(a.x+b.x)/(2*FP),"y":a.y/FP})
+			var ar: bool=moves[a.move].kind=="reflect"
+			var br: bool=moves[b.move].kind=="reflect"
+			var overlap: bool=projectile_box(a).intersects(projectile_box(b)) if ar or br else abs(a.x-b.x)<18*FP and abs(a.y-b.y)<18*FP
+			if not overlap: continue
+			if ar!=br:
+				var wave: Dictionary=a if ar else b
+				var shot: Dictionary=b if ar else a
+				if not shot.get("reflected",false):
+					shot.owner=wave.owner
+					shot.face=-shot.face
+					shot.vx=-shot.vx
+					shot.hits.clear()
+					shot.reflected=true
+					shot.source_frame=state.next_id
+					state.next_id+=1
+					wave.dead=true
+					event("reflect",wave.owner,{"x":shot.x/FP,"y":shot.y/FP})
+					continue
+			a.dead=true
+			b.dead=true
+			event("clash",a.owner,{"x":(a.x+b.x)/(2*FP),"y":a.y/FP})
+
+func clear_deadline_on_hit(owner: int, target: int) -> void:
+	var f: Dictionary=state.fighters[owner]
+	if not f.deadline.is_empty() and f.deadline.owner==target:
+		f.deadline.clear()
+		event("deadline_clear",owner,{"text":"赶上了！"})
+
+func resolve_deadlines() -> Array:
+	# Collect both expirations first so mirror matches resolve simultaneous damage.
+	var hits: Array=[]
+	if state.fighters.any(func(f): return f.hp<=0): return []
+	for f in state.fighters:
+		if f.deadline.is_empty() or f.deadline.left>0: continue
+		var mark: Dictionary=f.deadline.duplicate()
+		f.deadline.clear()
+		var a: Dictionary=state.fighters[mark.owner]
+		var hit: Dictionary=make_hit(a,f,moves["P4-U1"],mark.damage,30,0,1,"deadline/"+str(mark.source),false)
+		hit["detonation"]=true
+		hits.append(hit)
+	for hit in hits:
+		apply_hit(hit)
+		event("deadline_burst",hit.owner,{"x":hit.x,"y":hit.y,"text":"收工咯～"})
+	return hits.map(func(hit): return hit.target)
 
 func add_energy(f: Dictionary, amount: int) -> void:
 	var old: int = f.energy/100
@@ -543,7 +607,7 @@ func apply_hit(hit: Dictionary) -> void:
 			b.combo += 1
 			b.combo_scale = maxi(40,110-b.combo*10)
 			if b.combo==1: b.combo_damage = 0
-		damage = damage*b.combo_scale/100
+		damage = damage if hit.get("detonation",false) else damage*b.combo_scale/100
 		b.combo_damage += damage
 		b.combo_age = 60
 		b.combo_display = b.combo
@@ -557,10 +621,15 @@ func apply_hit(hit: Dictionary) -> void:
 		if hit.hard:
 			b.mode = "down"
 			b.hitstun = 0
-		if hit.kind=="projectile" and a.char in [0,1]:
-			b.reaction = "poop" if a.char==0 else "laugh"
-			b.reaction_time = 18 if a.char==0 else 22
-			if a.char==0: b.stain = 45
+		var origin: int=hit.get("origin_char",a.char)
+		if hit.kind=="projectile" and origin in [0,1]:
+			b.reaction = "poop" if origin==0 else "laugh"
+			b.reaction_time = 18 if origin==0 else 22
+			if origin==0: b.stain = 45
+	if not block and damage>0:
+		clear_deadline_on_hit(hit.owner,hit.target)
+		if hit.kind=="deadline" and not hit.get("detonation",false) and b.deadline.is_empty():
+			b.deadline={"owner":hit.owner,"left":180,"damage":260 if a.enhanced else 200,"source":hit.source}
 	var dealt: int=mini(b.hp,damage)
 	b.hp = maxi(0,b.hp-damage)
 	b.age = 0
@@ -583,7 +652,7 @@ func apply_hit(hit: Dictionary) -> void:
 	if hit.kind=="summon": pause = 6 if block else 10
 	if hit.kind=="papers" or (hit.kind=="dance" and hit.sub<3): pause = 2 if block else 3
 	state.freeze = maxi(state.freeze,pause)
-	event("block" if block else "hit",hit.owner,{"target":hit.target,"x":hit.x,"y":hit.y,"damage":damage,"dealt":dealt,"heavy":heavy or hit.kind in ["summon","shoulder","sonic"] or (hit.kind=="dance" and hit.sub==3),"move":hit.move,"combo":b.combo,"combo_damage":b.combo_damage,"combo_start":b.combo==1 and b.combo_damage==damage})
+	event("block" if block else "hit",hit.owner,{"target":hit.target,"x":hit.x,"y":hit.y,"damage":damage,"dealt":dealt,"heavy":heavy or hit.kind in ["summon","shoulder","sonic","pat","deadline"] or (hit.kind=="dance" and hit.sub==3),"move":hit.move,"combo":b.combo,"combo_damage":b.combo_damage,"combo_start":b.combo==1 and b.combo_damage==damage})
 
 func finish_frame(f: Dictionary) -> void:
 	f.age += 1
@@ -659,6 +728,7 @@ func advance_cinema(buttons: Array) -> void:
 			damage = damage*maxi(40,110-b.combo*10)/100
 		var dealt: int=mini(b.hp,damage)
 		b.hp = maxi(0,b.hp-damage)
+		clear_deadline_on_hit(c.owner,c.target)
 		add_energy(b,6)
 		if c.kind=="throw": add_energy(a,10)
 		event("slam",c.owner,{"target":c.target,"damage":damage,"dealt":dealt})
@@ -724,7 +794,9 @@ func check_end() -> void:
 		b.energy = 0
 	state.phase = "result"
 	state.phase_time = 180
-	for f in state.fighters: f.max = 0
+	for f in state.fighters:
+		f.max = 0
+		f.deadline.clear()
 	event("ko" if state.time>0 else "time",state.winner)
 
 func snapshot() -> Dictionary:
